@@ -5,3 +5,4 @@ __pycache__/
 *.pyc
 guide.txt
 .superpowers/
+.venv/
