@@ -94,3 +94,35 @@ def write_snapshot(task_ids, answers, path):
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(results, f, ensure_ascii=False)
     os.replace(tmp, path)
+
+
+def answer_task(client, model, task, deadline):
+    """One Fireworks call with one retry. Never raises; failures return answer ''."""
+    result = {"task_id": task["task_id"], "answer": "",
+              "prompt_tokens": 0, "completion_tokens": 0, "error": None}
+    for attempt, timeout in enumerate((FIRST_TIMEOUT_SECONDS, RETRY_TIMEOUT_SECONDS)):
+        if time.monotonic() >= deadline:
+            result["error"] = "soft budget exhausted before dispatch"
+            return result
+        try:
+            resp = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": task["prompt"]},
+                ],
+                max_tokens=MAX_TOKENS,
+                timeout=timeout,
+            )
+            result["answer"] = (resp.choices[0].message.content or "").strip()
+            usage = getattr(resp, "usage", None)
+            if usage is not None:
+                result["prompt_tokens"] = usage.prompt_tokens or 0
+                result["completion_tokens"] = usage.completion_tokens or 0
+            result["error"] = None
+            return result
+        except Exception as exc:  # noqa: BLE001 — one task must never kill the run
+            result["error"] = f"{type(exc).__name__}: {exc}"
+            if attempt == 0:
+                time.sleep(RETRY_BACKOFF_SECONDS)
+    return result
