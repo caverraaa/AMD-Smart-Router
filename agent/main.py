@@ -126,3 +126,53 @@ def answer_task(client, model, task, deadline):
             if attempt == 0:
                 time.sleep(RETRY_BACKOFF_SECONDS)
     return result
+
+
+def main():
+    start = time.monotonic()
+    deadline = start + SOFT_BUDGET_SECONDS
+    input_path = os.environ.get("AGENT_INPUT", "/input/tasks.json")
+    output_path = os.environ.get("AGENT_OUTPUT", "/output/results.json")
+
+    cfg = load_config()
+    model = pick_cheapest_model(cfg["allowed_models"])
+    log(f"model: {model} (from {len(cfg['allowed_models'])} allowed)")
+
+    try:
+        task_ids, answerable = load_tasks(input_path)
+    except Exception as exc:  # unreadable input: still leave valid JSON behind
+        log(f"FATAL: cannot read tasks: {type(exc).__name__}: {exc}")
+        write_snapshot([], {}, output_path)
+        return 1
+
+    answers = {tid: "" for tid in task_ids}
+    write_snapshot(task_ids, answers, output_path)  # valid output exists from t=0
+
+    client = OpenAI(base_url=cfg["base_url"], api_key=cfg["api_key"])
+    prompt_tokens = completion_tokens = failed = 0
+    try:
+        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
+            futures = [pool.submit(answer_task, client, model, t, deadline) for t in answerable]
+            for fut in as_completed(futures):
+                r = fut.result()  # answer_task never raises
+                answers[r["task_id"]] = r["answer"]
+                prompt_tokens += r["prompt_tokens"]
+                completion_tokens += r["completion_tokens"]
+                if r["error"]:
+                    failed += 1
+                    log(f"WARN: {r['task_id']}: {r['error']}")
+                write_snapshot(task_ids, answers, output_path)
+    finally:
+        write_snapshot(task_ids, answers, output_path)
+        answered = sum(1 for a in answers.values() if a)
+        log(
+            f"stats: tasks={len(task_ids)} answered={answered} failed={failed} "
+            f"prompt_tokens={prompt_tokens} completion_tokens={completion_tokens} "
+            f"total_tokens={prompt_tokens + completion_tokens} "
+            f"elapsed={time.monotonic() - start:.1f}s model={model}"
+        )
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
