@@ -78,3 +78,19 @@ def load_tasks(path):
         else:
             log(f"WARN: task {entry['task_id']} has no usable prompt; will emit empty answer")
     return task_ids, answerable
+
+
+def write_snapshot(task_ids, answers, path):
+    """Atomically replace `path` with the full, schema-valid results list.
+
+    Called after every completed task, so the file on disk is always
+    complete valid JSON no matter when the container dies.
+    """
+    results = [
+        {"task_id": str(tid), "answer": str(answers.get(tid) or "")}
+        for tid in task_ids
+    ]
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(results, f, ensure_ascii=False)
+    os.replace(tmp, path)
