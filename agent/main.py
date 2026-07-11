@@ -12,7 +12,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from openai import OpenAI
 
-SYSTEM_PROMPT = "Answer in English. Be correct and complete, but concise."
+SYSTEM_PROMPT = "You are a precise task execution agent. Give direct, minimal, and concise answers without explanation, markdown tables, preambles, or conversational filler. If asked for code, return ONLY the raw code block. If asked for a fact, return only the fact."
 MAX_TOKENS = 1024
 FIRST_TIMEOUT_SECONDS = 20.0
 RETRY_TIMEOUT_SECONDS = 25.0

@@ -1,0 +1,455 @@
+AMD Developer Hackathon: ACT II
+Build AI agents and high-performance AI apps on AMD GPUs in the cloud I Prize Pool $20,000+
+
+To participate in the hackathon, simply click Sign up with AMD. If you are not already a member of the AMD AI Developer Program (ADP), you will need to create an account.
+
+ 
+
+ADP members can access AI tutorials, experts, and community support. In addition, new members can claim a free month of DeepLearning.ai pro, $100 in AMD GPU cloud credits, and $50 in Fireworks AI API credits.
+
+
+All hackathon participants will receive on hackathon launch additional compute and API credits for their projects.
+
+Ready to build what's next on AMD? Sign up with AMD below to secure your spot.
+AMD Developer Hackathon: ACT II event thumbnail
+
+Action required: Participants who have signed up on lablab.ai but have not yet created or joined a team MUST do so to receive access to an AMD GPU pod for development if they so desire. The AMD GPU pod is assigned one per registered team, which could be comprised of one or more people.
+→ Once your team is registered, please allow up to 24 hours for your resources to be allocated.
+→ GPU pod usage is set to 8 hours per 24 hours for all registered teams.
+→ Seeing a "team not registered" error on notebooks.amd.com/hackathon? It means you haven't created or joined a team on lablab.ai yet — even solo participants must register a team.
+🔒 Hackathon Registrations Closed
+
+Hackathon registrations are now closed
+
+Registration for the AMD Developer Hackathon: ACT II closed on July 6th at 8:00 PM CET. If you registered before that deadline, you are eligible to participate. You can still sign up for the AMD AI Developer Program to claim your credits.
+Registered before July 6th 8 PM CET
+
+You are eligible for the hackathon and all prizes. Check Discord for credit allocation details.
+Signing up after closing
+
+Not eligible for the hackathon, but you can still sign up for the AMD AI Developer Program and claim your credits.
+⚠ Registration and credits notice
+
+Register by July 2nd to receive your hackathon credits on day one
+
+Registration stays open after July 2nd, but hackathon credits for late sign-ups will only be allocated from July 7th onward.
+Sign up by July 2nd
+
+Hackathon credits available from day one. Additional resource details will be shared on Discord once the event starts.
+Sign up after July 2nd
+
+You can still join, but hackathon credits will only be allocated from July 7th onward.
+ℹ
+Two types of credits — they are separate
+
+Hackathon credits — All participants will receive $50 in Fireworks AI API credits. Additional infrastructure access details will be shared on Discord once the event starts.
+
+New member credits — $100 AMD Developer Cloud and $50 Fireworks AI API credits for new AMD AI Developer Program sign-ups. These follow a separate 2 to 3 day manual approval process and are not affected by the hackathon cutoff date.
+About
+
+The AMD Developer Hackathon: ACT II is a hands-on event for developers, founders, engineers, and builders who want to push what's possible with AI on real infrastructure.
+
+At the center of it: AI Agents - a space to explore intelligent workflows, automation, and real AI applications. Whether you're just starting out or already building, you can jump in and start creating.
+
+You'll be working with AMD AI Developer Cloud, ROCm, and Fireworks AI API, all fully in the cloud, so you can focus on building instead of setup.
+What participants get
+
+AMD AI Developer Program members unlock cloud credits, training resources, expert access, and opportunities to get their work recognized.
+New sign-ups only
+☁️ $100 AMD Developer Cloud GPU Credits
+
+New AMD AI Developer Program members receive $100 in cloud credits redeemable on AMD Developer Cloud with powerful AMD GPUs to start building.
+New sign-ups only
+🔥 $50 Fireworks AI API Credits
+
+New AMD AI Developer Program members receive $50 in Fireworks AI API credits to access models hosted on AMD-hardware to start building right away.
+🎓 AMD AI Academy
+
+Access AMD AI Academy courses, technical resources, tutorials, documentation, and developer learning content.
+New sign-ups only
+📘 DeepLearning.AI Pro
+
+Get a 1-month complimentary DeepLearning.AI Pro membership.
+🧑‍💻 AMD Expert Access
+
+Connect with AMD engineers and technical experts through member community channels and office hours.
+💬 Private Community Access
+
+Get access to community channels, personalized updates, and early registration opportunities for AMD developer events.
+🏆 Project Recognition
+
+Get opportunities for project recognition, including potential showcase on AMD social channels or at AMD developer events.
+🚀 Fully Cloud-Based
+
+Everything runs fully in the cloud, so no local hardware setup is required to participate and build.
+AMD GPU Cloud Access and Credits
+
+On hackathon start, details for AMD GPU cloud access and credits will be provided. Benefits are provided through the AMD AI Developer Program and may be subject to AMD's terms, eligibility, and availability.
+Community Partners
+The Hype News
+Referral Program
+Refer friends and earn points
+
+Invite other builders with your personal referral link. Once you're approved, you can generate your link from the event dashboard and start sharing.
+1
+Get approved
+
+Register for the hackathon and wait until your enrollment is approved.
+2
+Generate your link
+
+Open your dashboard and click "Generate referral link."
+3
+Share and track
+
+Share your link and track referral activity from your dashboard, live page, or profile.
+How points work
+
+Earn 200 points when someone joins through your link and submits a project. Referred participants can earn 100 points when they submit.
+⚠️
+Minimum threshold to qualify for the referral prizes
+
+You must refer at least 100 approved participants to be eligible for referral prizes — even if you finish in the top 3 on the leaderboard.
+
+Referral activity appears after invited participants enroll and get approved.
+Go to Event Dashboard
+View Live Leaderboard
+Challenge
+AMD Developer Hackathon: ACT II
+Three tracks. Real AMD hardware. Pick your challenge.
+
+Whether you're shipping your first AI agent or building your next startup, ACT II has a track for you. Build on AMD Developer Cloud, ROCm, and Fireworks AI API credits.
+
+All submissions must be containerized.
+Track 1 Hybrid Token-Efficient Routing Agent ⭐ Beginner · AI Agent Track
+Track 2 Video Captioning 🎬 Beginner · Prompt and have fun
+Track 3 Unicorn Track 🦄 All levels · Build your startup
+📋 Participant Guide — Full Task Details
+Action required: Create or join a team to access your AMD GPU pod
+→ Participants who have signed up on lablab.ai but have not yet created or joined a team MUST do so to receive access to an AMD GPU pod. The pod is assigned one per registered team, which could be comprised of one or more people.
+→ Once your team is registered, please allow up to 24 hours for your resources to be allocated.
+→ GPU pod usage is set to 8 hours per 24 hours for all registered teams.
+→ Seeing a "team not registered" error on notebooks.amd.com/hackathon? It means you haven't created or joined a team on lablab.ai yet — even solo participants must register a team.
+Track 1 ⭐ Beginner Friendly · AI Agent Track
+Hybrid Token-Efficient Routing Agent
+
+Build an AI agent that gets the job done using the least tokens possible.
+
+Build an AI agent that completes a fixed set of tasks autonomously, deciding in real time which Fireworks AI model is the cheapest one that can still answer accurately. The goal: use the fewest tokens possible, without falling below the accuracy threshold.
+
+Every submission is scored on a standardized environment. You can develop and test on any hardware, but final scoring runs on this standardized environment only. Only inference routed through Fireworks AI counts toward your score, so routing intelligence — picking the cheapest sufficient Fireworks model for each task — wins, not raw compute power.
+💡 Local models are a valid scoring strategy. Answers produced by local models inside the container count fully toward accuracy. Only tokens routed through FIREWORKS_BASE_URL count toward your token score — local inference uses zero Fireworks tokens, which is the best possible outcome for ranking.
+
+We recommend running a local eval step to check your output quality before submitting.
+
+Want to fine-tune your router? Go for it. Prompt-based and fine-tuned approaches are scored exactly the same way: token count and output accuracy.
+💡 Build Ideas
+Model Router / Cost Optimizer
+A routing layer that reads each query and instantly picks the cheapest, best-suited model from the available endpoints.
+Level Beginner
+Judging Token count and output accuracy
+Compute Fireworks AI API + local models (zero Fireworks tokens)
+Track 2 🎬 Beginner Friendly · Have Fun
+Video Captioning
+
+Four styles. Endless creativity. Let your humor bone shine.
+
+You'll work with a fixed set of short video clips and generate a caption or summary for each one in four distinct styles: formal, sarcastic, humorous-tech, and humorous-non-tech.
+💡 Video clips are strictly 30 seconds to 2 minutes in length.
+
+Models are accessed via Fireworks AI API credits. Fine-tuning is explicitly permitted — you may also train your own captioner and use it alongside or instead of prompting. Use open datasets, build your own, or both.
+Level Beginner
+Judging LLM-Judge for accuracy and tone
+Compute Fireworks AI API
+Track 3 🦄 All Levels
+Unicorn Track
+
+Your idea. AMD infrastructure. No benchmarks, no constraints — just build.
+
+Use any open-source models and frameworks alongside AMD GPUs and/or Fireworks AI API credits to build a product- or startup-oriented project.
+
+There is no fixed performance benchmark. Submissions are not scored on speed, token usage, or accuracy. Judges are looking for creativity, originality, completeness, use of AMD platforms, and product/market potential. Think startup pitch, not benchmark run.
+Level All skill levels and any tech stack
+Judging Creativity, originality, completeness, use of AMD platforms, product/market potential
+Compute AMD GPUs + Fireworks AI API
+Technology & Access
+
+Build using AMD Developer Cloud with AMD GPUs, ROCm, Fireworks AI API, and open-source AI frameworks.
+
+Everything runs fully in the cloud, so teams can focus on building, experimenting, benchmarking, and scaling AI workloads without managing infrastructure.
+AMD Developer Cloud
+
+On-demand access to AMD GPUs for training, fine-tuning, benchmarking, and deploying AI workloads.
+New AMD AI Developer Program (ADP) sign-ups only
+• $100 in AMD Developer Cloud credits
+• Access to AMD GPUs
+• Fully cloud-based development
+AMD AI Developer Program
+AMD Developer Cloud Overview
+Getting Started Guide
+ROCm
+
+ROCm is AMD's open-source GPU computing platform for AI, ML, and high-performance workloads on AMD GPUs.
+• Running PyTorch and TensorFlow on AMD GPUs
+• Porting CUDA workloads to AMD hardware
+• High-performance AI and ML workloads
+ROCm Documentation
+ROCm Installation Guide
+ROCm GitHub Repository
+Fireworks AI API
+
+Fast, scalable API access to AMD-hardware models for inference, fine-tuning, and building AI-powered pipelines.
+New AMD AI Developer Program (ADP) sign-ups only
+• $50 in Fireworks AI API credits
+• Access to AMD-hardware hosted models
+Fireworks AI Platform
+Fireworks AI Documentation
+AMD Training and Learning Resources
+
+Participants also get access to curated AI learning resources, tutorials, hands-on labs, and training materials to help them build faster.
+• Free access to AMD training resources
+• Hands-on labs with real GPU access
+• DeepLearning.AI resources for advanced content
+Full Training Catalog
+From Zero to AI Builder with AMD
+DeepLearning.AI
+Partner Tools
+Technology Partners
+
+The following technology partners are available to participants for this hackathon. Use them to build, prototype, and ship faster.
+Gemma Google DeepMind
+
+Gemma, Google DeepMind's family of lightweight open models, is joining AMD Developer Hackathon: ACT II. Use Gemma in your project for a chance to win the Best Use of Gemma Models challenge.
+
+Gemma is Google DeepMind's family of lightweight, open-weight models built from the same research as Gemini, available to participants through AMD Developer Cloud and Fireworks AI.
+Build with it:
+
+    • Add Gemma to your routing, captioning, or agent workflows
+    • Use Gemma's multimodal and reasoning capabilities within your track's requirements
+    • Check your track's model restrictions before building, as access varies by track
+
+Access:
+
+Access
+
+Via Fireworks AI credits
+
+Compute
+
+AMD Developer Cloud
+
+License
+
+Apache 2.0
+
+Sign-up
+
+Through AMD AI Developer Program
+Gemma Documentation
+Gemma Website
+Fireworks AI
+💡Quick Note on Gemma Access
+
+For this hackathon, Gemma is accessed through Fireworks AI and AMD Developer Cloud. Usage can be drawn from your hackathon credits, or from the $50 Fireworks AI credits available to new AMD AI Developer Program members. No separate sign-up is required.
+🚀How to Get Started with Gemma
+
+    Sign up for the AMD AI Developer Program to access AMD Developer Cloud and Fireworks AI credits.
+    Use your Fireworks AI credits to call a Gemma model directly through the Fireworks API.
+    Run your application on AMD Developer Cloud using your allocated GPU access.
+    Check your track's requirements before choosing a model, as model restrictions vary by track.
+
+NativelyAI Native.Builder
+Start Building →
+
+Native.Builder is an AI-native environment for building software, workflows, and agents fast. For this hackathon, participants get free access to the Lablab Builder plan for one month via a promo code, which unlocks the ability to bring their own Fireworks AI API key and use their hackathon credits inside Builder.
+Build with it:
+
+    • Create AI apps, workflows, and agents
+    • Use Fireworks AI credits directly within Builder
+    • Work with the models available in Builder
+    • Prototype and iterate quickly in one build environment
+    • Align your stack with your hackathon track requirements
+
+One-time setup
+🔑 Platform Access
+
+Use the promo code to get the free Lablab Builder plan for 1 month — unlocks Bring Your Own Key feature.
+AMDXBUILDER
+During the hackathon
+⚡ Model Inference
+
+Add your Fireworks AI API key via Integrations to use your hackathon credits inside Builder for every build, test, and iteration.
+🚀How to Get Started with Native.Builder
+
+    Sign up at Native.Builder.
+    Click Manage Plan, then Change Plan, and enter promo code AMDXBUILDER to activate your free Lablab Builder plan for 1 month.
+    Go to Integrations and set up your Fireworks AI API key to connect your hackathon credits.
+    Select the model that best fits your workflow or app.
+    Build and test your prototype inside Builder.
+    Confirm your model and workflow choices match your hackathon track requirements.
+
+Native.Builder Website
+Documentation
+Getting Started Guide
+Prizes
+
+🏆 Total Prize Pool: $21,000
+Track 1 — Hybrid Token-Efficient Routing Agent
+🥇 1st Place
+$2,500
+🥈 2nd Place
+$1,500
+🥉 3rd Place
+$1,000
+Track 2 — Video Captioning
+🥇 1st Place
+$2,500
+🥈 2nd Place
+$1,500
+🥉 3rd Place
+$1,000
+Track 3 — Unicorn Track
+🥇 1st Place
+$2,500
+🥈 2nd Place
+$1,500
+🥉 3rd Place
+$1,000
+Partner Reward
+Google DeepMind Gemma Prizes
+An additional $6,000 in prizes for the best use of Gemma models, awarded across all three tracks.
+$6,000 Gemma prize pool
+Track 1
+Best Use of Gemma via Fireworks
+$1,000
+Track 2
+Best Use of Gemma in Video Captioning
+$3,000
+Track 3
+Best AMD-Hosted Gemma Project
+$2,000
+Referral Program
+Earn up to $500 just for spreading the word
+$1,000 referral pool
+🥇
+Top referrer
+$250 cash + $250 Natively credits
+$500
+total
+🥈
+2nd referrer
+$150 cash + $150 Natively credits
+$300
+total
+🥉
+3rd referrer
+$100 cash + $100 Natively credits
+$200
+total
+⚠️
+Minimum threshold: You must refer at least 100 approved participants to qualify for referral prizes, even if you finish in the top 3 on the leaderboard.
+Please note: Participation in lablab.ai hackathons is voluntary. Prizes and opportunities depend on eligibility, availability, and third-party sponsors, for whom lablab.ai is not responsible. Hackathon rules, prizes, and terms may change or be canceled at our discretion. Submissions must be original and MIT-compliant. Prize distribution may take up to 90 days.
+
+Full details: Voluntary Participation & Prize Terms
+Community and Social Channels
+
+Stay connected with the teams behind the hackathon and follow along for updates, highlights, and future opportunities.
+AMD
+X · LinkedIn
+NativelyAI
+X · LinkedIn · Website
+Gemma
+X · Website
+Google DeepMind
+X · LinkedIn
+lablab.ai
+X · LinkedIn · Facebook · Instagram · YouTube · Twitch · Website
+What to submit?
+
+Submit your project through the lablab.ai platform before the deadline. Make sure all fields below are completed.
+📋 Basic Information
+
+    • Project Title
+    • Short Description
+    • Long Description
+    • Technology and Category Tags
+
+📸 Cover Image and Presentation
+
+    • Cover Image
+    • Video Presentation
+    • Slide Presentation
+
+💻 App Hosting and Code Repository
+
+    • Public GitHub Repository
+    • Demo Application Platform
+    • Application URL
+
+Important Requirements
+
+• Your project must be submitted through the lablab.ai platform before the deadline.
+
+• All submissions must be containerized.
+
+• Your GitHub repository must be public and include a README with setup and usage instructions.
+
+• The application must be runnable using the provided instructions.
+⏰ Submission Deadline
+
+Check the Event Schedule tab — the deadline is always up to date and shown in your local timezone.
+
+For general lablab.ai submission guidance, please visit Submission Guidelines.
+
+lablab.ai — Hackathon Submissions Process
+Judging Criteria
+
+Scoring varies by track. Tracks 1 and 2 are ranked via leaderboard. Track 3 — Unicorn Track is evaluated by judges using the criteria below.
+Tracks 1 and 2
+Scored via leaderboard. Refer to the track details for scoring criteria.
+See track details
+Track 3 — Unicorn Track
+Judged on the criteria below.
+Creativity and Originality
+
+The uniqueness and creativity of the solution, highlighting novel approaches and new behaviors.
+Product/Market Potential
+
+The startup or product vision — how compelling and viable the idea is in a real market context.
+Completeness
+
+How fully realized and functional the submitted project is.
+Use of AMD Platforms
+
+How meaningfully AMD infrastructure is incorporated into the project.
+Hackathon Details
+
+Everything you need to know before you register and start building.
+🛠️ How to participate
+
+To access credits and be approved for the hackathon, participants must sign up for the AMD AI Developer Program.
+
+The hackathon takes place online on the lablab.ai platform. Click the Enroll button on this page to register.
+🦸 Who can join?
+
+Anyone with a passion for AI is welcome. To participate, simply sign up on lablab.ai and register for the AMD AI Developer Program.
+Hackathon Guidelines
+Getting Started Guide
+👥 What about teams?
+
+If you don't have a team yet, connect with other builders and find teammates on the lablab.ai Discord Server. Join the conversation and start building with others from day one.
+Join lablab.ai Discord
+💬 AMD Discord Server
+
+Join the AMD Discord for infrastructure questions, hardware, software, and AMD AI Academy tutorials and support throughout the hackathon.
+Join AMD Discord
+🧠 Get prepared
+
+To get ready for the hackathon, visit the lablab.ai AI Tech pages to read up on all available technologies, and check out the tutorials page for practical guides and inspiration. Get a head start on your project using the resources on lablab.ai.
+
+Note: To access hackathon credits and resources, make sure you have signed up for the AMD AI Developer Program before the hackathon starts.
+Action required: Create or join a team to access your AMD GPU pod
+→ Participants who have signed up on lablab.ai but have not yet created or joined a team MUST do so to receive access to an AMD GPU pod. The pod is assigned one per registered team, which could be comprised of one or more people.
+→ Once your team is registered, please allow up to 24 hours for your resources to be allocated.
+→ GPU pod usage is set to 8 hours per 24 hours for all registered teams.
+→ Seeing a "team not registered" error on notebooks.amd.com/hackathon? It means you haven't created or joined a team on lablab.ai yet — even solo participants must register a team.
