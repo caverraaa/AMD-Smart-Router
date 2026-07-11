@@ -8,7 +8,7 @@ cd "$(dirname "$0")"
 mkdir -p input output
 cp practice_tasks.json input/tasks.json
 
-docker buildx build --platform linux/amd64 -t routing-agent .
+docker buildx build --platform linux/amd64 --load -t routing-agent .
 
 # set -e makes a non-zero container exit abort the script — that IS the exit-code assertion
 docker run --rm --memory=4g --cpus=2 \
