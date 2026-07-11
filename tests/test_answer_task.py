@@ -73,12 +73,19 @@ def test_past_deadline_makes_no_api_call():
     assert client.chat.completions.calls == []
 
 
-def test_none_content_and_missing_usage_handled():
-    resp = SimpleNamespace(
-        choices=[SimpleNamespace(message=SimpleNamespace(content=None))],
-        usage=None,
-    )
-    client = FakeClient([resp])
+def test_none_content_and_missing_usage_handled(monkeypatch):
+    monkeypatch.setattr(m, "RETRY_BACKOFF_SECONDS", 0)
+
+    def none_resp():
+        return SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content=None))],
+            usage=None,
+        )
+
+    # empty content counts as a failed attempt and is retried once
+    client = FakeClient([none_resp(), none_resp()])
     r = answer_task(client, "m-2b", TASK, FUTURE)
     assert r["answer"] == ""
+    assert "empty content" in r["error"]
     assert r["prompt_tokens"] == 0 and r["completion_tokens"] == 0
+    assert len(client.chat.completions.calls) == 2

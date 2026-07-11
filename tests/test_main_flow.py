@@ -39,7 +39,8 @@ def test_happy_path(monkeypatch, tmp_path, capsys):
         {"task_id": "t1", "prompt": "a"},
         {"task_id": "t2", "prompt": "b"},
     ])
-    created = patch_client(monkeypatch, [fake_response("A"), fake_response("B")])
+    # first outcome feeds the startup model probe
+    created = patch_client(monkeypatch, [fake_response("OK"), fake_response("A"), fake_response("B")])
     assert m.main() == 0
     results = {r["task_id"]: r["answer"] for r in json.loads(out.read_text())}
     assert results == {"t1": "A", "t2": "B"}
@@ -57,7 +58,8 @@ def test_one_task_failure_does_not_kill_run(monkeypatch, tmp_path):
         {"task_id": "t1", "prompt": "a"},
         {"task_id": "t2", "prompt": "b"},
     ])
-    patch_client(monkeypatch, [RuntimeError("x"), RuntimeError("y"), fake_response("B")])
+    # probe OK, then t1 fails twice, then t2 succeeds
+    patch_client(monkeypatch, [fake_response("OK"), RuntimeError("x"), RuntimeError("y"), fake_response("B")])
     assert m.main() == 0
     results = {r["task_id"]: r["answer"] for r in json.loads(out.read_text())}
     assert results == {"t1": "", "t2": "B"}
@@ -68,7 +70,7 @@ def test_unanswerable_task_still_in_output(monkeypatch, tmp_path):
         {"task_id": "t1"},
         {"task_id": "t2", "prompt": "b"},
     ])
-    patch_client(monkeypatch, [fake_response("B")])
+    patch_client(monkeypatch, [fake_response("OK"), fake_response("B")])
     assert m.main() == 0
     results = json.loads(out.read_text())
     assert results == [{"task_id": "t1", "answer": ""}, {"task_id": "t2", "answer": "B"}]
