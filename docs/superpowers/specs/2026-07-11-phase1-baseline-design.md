@@ -53,7 +53,7 @@ exit 0 whenever results.json was written, even with some "" answers
 - **Timeout math.** Per-response rule is <30 s, so no request may run longer: 20 s first attempt, 25 s retry. Worst case per worker slot-cycle ≈ 47 s; 4 workers × 9-minute soft budget ≈ 45 slot-cycles ≈ capacity for >100 tasks. The 9 m soft budget leaves 60 s margin for startup, final write, exit.
 - **Snapshot writes.** Serialize the full current results list to `/output/results.json.tmp`, then `os.replace` onto `/output/results.json`. Writes happen only from the main collector thread (no locking races). The file on disk is always complete, valid JSON — from the first completed task onward.
 - **Schema enforcement.** Before every write: coerce `task_id` to str, `answer` to str (never None/null). Exactly one output entry per input task.
-- **API client.** `OpenAI(base_url=FIREWORKS_BASE_URL, api_key=FIREWORKS_API_KEY)` is the only HTTP client in the codebase. No answer caching keyed on prompt text anywhere.
+- **API client.** `OpenAI(base_url=FIREWORKS_BASE_URL, api_key=FIREWORKS_API_KEY)` is the only HTTP client in the codebase. Constructed with `max_retries=0` — the SDK's default internal retries (2) would stack under `answer_task`'s own retry and break the timeout math. No answer caching keyed on prompt text anywhere.
 - **Stats to stderr** (stdout stays clean): tasks total/answered/failed, prompt+completion token sums from `response.usage`, elapsed wall-clock, model used.
 
 ## Dockerfile

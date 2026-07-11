@@ -22,9 +22,10 @@ def setup_env(monkeypatch, tmp_path, tasks):
 def patch_client(monkeypatch, outcomes):
     created = {}
 
-    def fake_openai(base_url, api_key):
+    def fake_openai(base_url, api_key, max_retries):
         created["base_url"] = base_url
         created["api_key"] = api_key
+        created["max_retries"] = max_retries
         return FakeClient(outcomes)
 
     monkeypatch.setattr(m, "OpenAI", fake_openai)
@@ -44,6 +45,7 @@ def test_happy_path(monkeypatch, tmp_path, capsys):
     assert results == {"t1": "A", "t2": "B"}
     assert created["base_url"] == "https://proxy.example/v1"
     assert created["api_key"] == "fk-test"
+    assert created["max_retries"] == 0
     err = capsys.readouterr().err
     assert "stats:" in err and "total_tokens=30" in err
 
@@ -85,5 +87,14 @@ def test_exhausted_budget_degrades_to_empty_answers(monkeypatch, tmp_path):
     client_outcomes = [fake_response("never")]
     patch_client(monkeypatch, client_outcomes)
     monkeypatch.setattr(m, "SOFT_BUDGET_SECONDS", -1.0)  # deadline already passed
+    assert m.main() == 0
+    assert json.loads(out.read_text()) == [{"task_id": "t1", "answer": ""}]
+
+
+def test_client_construction_failure_still_writes_results(monkeypatch, tmp_path):
+    out = setup_env(monkeypatch, tmp_path, [{"task_id": "t1", "prompt": "a"}])
+    def exploding_openai(**kwargs):
+        raise RuntimeError("no client")
+    monkeypatch.setattr(m, "OpenAI", exploding_openai)
     assert m.main() == 0
     assert json.loads(out.read_text()) == [{"task_id": "t1", "answer": ""}]

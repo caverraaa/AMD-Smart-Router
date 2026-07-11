@@ -148,9 +148,9 @@ def main():
     answers = {tid: "" for tid in task_ids}
     write_snapshot(task_ids, answers, output_path)  # valid output exists from t=0
 
-    client = OpenAI(base_url=cfg["base_url"], api_key=cfg["api_key"])
     prompt_tokens = completion_tokens = failed = 0
     try:
+        client = OpenAI(base_url=cfg["base_url"], api_key=cfg["api_key"], max_retries=0)
         with ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
             futures = [pool.submit(answer_task, client, model, t, deadline) for t in answerable]
             for fut in as_completed(futures):
@@ -162,6 +162,8 @@ def main():
                     failed += 1
                     log(f"WARN: {r['task_id']}: {r['error']}")
                 write_snapshot(task_ids, answers, output_path)
+    except Exception as exc:  # noqa: BLE001 — a valid snapshot already exists; don't fail the run
+        log(f"WARN: run aborted early: {type(exc).__name__}: {exc}")
     finally:
         write_snapshot(task_ids, answers, output_path)
         answered = sum(1 for a in answers.values() if a)
