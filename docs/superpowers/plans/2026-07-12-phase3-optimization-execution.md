@@ -22,7 +22,9 @@ input and output tokens, including probes and retries.
 Owns `agent/main.py`, `agent/router.py`, and the task/probe/telemetry tests.
 
 - [x] P1a: make Fireworks token telemetry include probes and retries.
-- [ ] P1b: record a live practice/golden baseline with the complete telemetry.
+- [x] P1b: record a live practice baseline with the complete telemetry.
+- [ ] P1c: record a golden baseline after explicit approval to send the private
+  evaluation prompts to the external Fireworks service.
 - [ ] P3: replace paid runtime probes with an offline-validated model policy.
 - [ ] P5: shorten per-category instructions without accuracy regressions.
 - [ ] P6: introduce per-category first-attempt and retry token caps.
@@ -49,6 +51,14 @@ probe plus task prompt and completion tokens.
 |---|---|---|---:|---:|---:|---:|---:|---:|---:|---|
 | 2026-07-12 | scored image | v2 hardened | 94.7% | unknown | unknown | unknown | unknown | 8,421 | unknown | reference |
 | 2026-07-12 | scored image | v3 tokendiet | 100.0% | unknown | unknown | unknown | unknown | 11,196 | unknown | accuracy reference |
+| 2026-07-12 | `3be16cb` | P1b practice: gpt-oss-120b, sentiment local | 8/8 | 170 | 50 | 791 | 827 | 1,838 | 17.9s | pass; 9 calls, 0 retries |
+
+The P1b container was `linux/amd64`, 1,784,945,262 bytes. The repository's
+`.env` model ID was obsolete and returned 404, so the valid text-model catalog
+reported by the configured proxy was supplied as a runtime override; the
+reasoning-tax selector chose `accounts/fireworks/models/gpt-oss-120b` with low
+reasoning effort. The failed configuration run produced no reported tokens and
+is not a valid baseline.
 
 ## Merge order
 
