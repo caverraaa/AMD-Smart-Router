@@ -48,7 +48,7 @@ def generate():
     from openai import OpenAI
     client = OpenAI(base_url=os.environ["FIREWORKS_BASE_URL"],
                     api_key=os.environ["FIREWORKS_API_KEY"], max_retries=0)
-    judge_model = os.environ.get("JUDGE_MODEL", "accounts/fireworks/models/kimi-k2p5")
+    judge_model = os.environ.get("JUDGE_MODEL", "accounts/fireworks/models/kimi-k2p6")
     out = []
     for cat, n in COUNTS.items():
         seed_prompt, seed_intent = SEEDS[cat]

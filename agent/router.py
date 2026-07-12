@@ -23,8 +23,8 @@ _RULES = [
 _COMPILED = [(cat, re.compile(pattern, re.IGNORECASE | re.DOTALL)) for cat, pattern in _RULES]
 
 CONSTRAINTS = {
-    "sentiment": "Answer with the sentiment label plus a one-sentence justification.",
-    "ner": "List each entity with its type, one per line. No extra text.",
+    "sentiment": "Answer with the sentiment label (positive, negative, neutral, or mixed) plus a one-sentence justification. If the text contains both clearly positive and clearly negative aspects, label it mixed.",
+    "ner": "List each entity with its type (PERSON, ORG, LOCATION, DATE), one per line, including relative dates like 'yesterday' or 'last week'. No extra text.",
     "summarisation": "Obey the stated format and length exactly. No preamble.",
     "math": "Give the final answer first, then at most two sentences of working.",
     "code_debug": "Output only the corrected code.",
