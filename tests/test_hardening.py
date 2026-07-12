@@ -64,37 +64,74 @@ def test_duplicate_task_ids_keep_first(tmp_path):
     assert answerable == [{"task_id": "t1", "prompt": "first"}]
 
 
-# --- Fix 2: model probing with fallback --------------------------------------
+# --- Fix 2: model probing with fallback (reasoning-tax-aware) ----------------
 
-def test_probe_picks_cheapest_when_it_works(monkeypatch):
+def probe_response(text, completion_tokens):
+    return fake_response(text, prompt_tokens=15, completion_tokens=completion_tokens)
+
+
+def test_probe_picks_cheapest_when_lean(monkeypatch):
     monkeypatch.delenv("CHEAP_MODEL", raising=False)
-    client = FakeClient([fake_response("OK")])
+    client = FakeClient([probe_response("4", 5)])  # overhead 4 <= 30 -> stop
     allowed = ["accounts/x/big-70b", "accounts/x/small-2b"]
-    assert pick_working_model(client, allowed) == "accounts/x/small-2b"
-    assert len(client.chat.completions.calls) == 1  # one probe only
+    assert pick_working_model(client, allowed) == ("accounts/x/small-2b", None)
+    assert len(client.chat.completions.calls) == 1
 
 
 def test_probe_falls_through_to_next_model(monkeypatch):
     monkeypatch.delenv("CHEAP_MODEL", raising=False)
-    client = FakeClient([RuntimeError("not a chat model"), fake_response("OK")])
+    client = FakeClient([RuntimeError("not a chat model"), probe_response("4", 5)])
     allowed = ["accounts/x/image-model", "accounts/x/chat-model"]
-    # both parse inf -> list order; first fails probe, second succeeds
-    assert pick_working_model(client, allowed) == "accounts/x/chat-model"
+    assert pick_working_model(client, allowed) == ("accounts/x/chat-model", None)
 
 
 def test_all_probes_fail_falls_back_to_cheapest(monkeypatch):
     monkeypatch.delenv("CHEAP_MODEL", raising=False)
-    client = FakeClient([RuntimeError("a"), RuntimeError("b")])
+    client = FakeClient([RuntimeError("a"), RuntimeError("b"), RuntimeError("c"), RuntimeError("d")])
     allowed = ["accounts/x/big-70b", "accounts/x/small-2b"]
-    assert pick_working_model(client, allowed) == "accounts/x/small-2b"
+    # 2 default probes + 0 low-effort probes (they only run after a HIGH overhead success)
+    assert pick_working_model(client, allowed) == ("accounts/x/small-2b", None)
+    assert len(client.chat.completions.calls) == 2
 
 
 def test_probe_respects_cheap_model_override(monkeypatch):
     monkeypatch.setenv("CHEAP_MODEL", "accounts/x/big-70b")
-    client = FakeClient([fake_response("OK")])
+    client = FakeClient([probe_response("4", 5)])
     allowed = ["accounts/x/small-2b", "accounts/x/big-70b"]
-    assert pick_working_model(client, allowed) == "accounts/x/big-70b"
+    model, extra = pick_working_model(client, allowed)
+    assert model == "accounts/x/big-70b"
     assert client.chat.completions.calls[0]["model"] == "accounts/x/big-70b"
+
+
+def test_reasoning_model_gets_low_effort_knob(monkeypatch):
+    monkeypatch.delenv("CHEAP_MODEL", raising=False)
+    # default probe: 150 billed for "4" (overhead 149) -> tries reasoning_effort low
+    # low-effort probe: 20 billed (overhead 19 <= 30) -> selected with the knob
+    client = FakeClient([probe_response("4", 150), probe_response("4", 20)])
+    model, extra = pick_working_model(client, ["accounts/x/reasoner-8b"])
+    assert model == "accounts/x/reasoner-8b"
+    assert extra == {"reasoning_effort": "low"}
+    assert client.chat.completions.calls[1]["extra_body"] == {"reasoning_effort": "low"}
+
+
+def test_low_effort_rejected_keeps_default(monkeypatch):
+    monkeypatch.delenv("CHEAP_MODEL", raising=False)
+    # model A: high overhead, low-effort knob rejected -> stays candidate at 149
+    # model B: lean -> wins
+    client = FakeClient([
+        probe_response("4", 150), RuntimeError("unknown param reasoning_effort"),
+        probe_response("4", 10),
+    ])
+    model, extra = pick_working_model(client, ["accounts/x/reasoner-2b", "accounts/x/plain-8b"])
+    assert model == "accounts/x/plain-8b"
+    assert extra is None
+
+
+def test_answer_task_passes_extra_body():
+    client = FakeClient([fake_response("4")])
+    task = {"task_id": "t1", "prompt": "2+2?"}
+    answer_task(client, "m-x", task, FUTURE, extra_body={"reasoning_effort": "low"})
+    assert client.chat.completions.calls[0]["extra_body"] == {"reasoning_effort": "low"}
 
 
 # --- Fix 3: empty-content retry (reasoning exhaustion) -----------------------

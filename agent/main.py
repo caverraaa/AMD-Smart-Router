@@ -27,7 +27,9 @@ RETRY_BACKOFF_SECONDS = 2.0
 SOFT_BUDGET_SECONDS = 540.0  # 9 min of the 10-min limit; the rest is startup/write/exit margin
 MAX_WORKERS = 4
 PROBE_TIMEOUT_SECONDS = 10.0
-PROBE_MAX_TOKENS = 16
+PROBE_MAX_TOKENS = 200  # headroom so hidden reasoning shows up in the overhead measurement
+LOW_OVERHEAD_TOKENS = 30  # a model this lean is good enough; stop spending probe tokens
+PROBE_PROMPT = "What is 2+2? Answer with just the number."
 
 _SIZE_RE = re.compile(r"(\d+(?:\.\d+)?)b(?![a-z0-9])")
 
@@ -49,30 +51,58 @@ def pick_cheapest_model(allowed_models):
     return min(allowed_models, key=parse_model_size)  # ties keep list order
 
 
-def pick_working_model(client, allowed_models):
-    """Cheapest-first, but never a model that can't actually answer a chat call.
+def _probe(client, model, extra_body=None):
+    """One tiny call; returns billed-minus-visible completion-token overhead.
 
-    Modern model IDs often carry no parameter count, so the size heuristic can
-    land on a non-chat or otherwise broken entry; a silent bad pick turns every
-    answer into "" at evaluation. One tiny probe per candidate rules that out.
+    Reasoning models bill hidden thinking as completion tokens — on the
+    scored eval the overhead was ~2/3 of the whole bill, so it outranks
+    parameter count when choosing the cheapest usable model.
     """
+    kwargs = {"extra_body": extra_body} if extra_body else {}
+    resp = client.chat.completions.create(
+        model=model,
+        messages=[{"role": "user", "content": PROBE_PROMPT}],
+        max_tokens=PROBE_MAX_TOKENS,
+        timeout=PROBE_TIMEOUT_SECONDS,
+        **kwargs,
+    )
+    content = (resp.choices[0].message.content or "").strip()
+    usage = getattr(resp, "usage", None)
+    billed = (usage.completion_tokens or 0) if usage else 0
+    return billed - max(1, len(content) // 4)
+
+
+def pick_working_model(client, allowed_models):
+    """Returns (model_id, extra_body|None): cheapest usable model by measured
+    token overhead; never a model that can't actually answer a chat call."""
     ranked = sorted(allowed_models, key=parse_model_size)  # stable: ties keep list order
     override = os.environ.get("CHEAP_MODEL")
     if override in allowed_models:
         ranked = [override] + [x for x in ranked if x != override]
-    for model in ranked:
+    candidates = []  # (overhead, rank_index, model, extra_body)
+    for i, model in enumerate(ranked):
         try:
-            client.chat.completions.create(
-                model=model,
-                messages=[{"role": "user", "content": "Say OK"}],
-                max_tokens=PROBE_MAX_TOKENS,
-                timeout=PROBE_TIMEOUT_SECONDS,
-            )
-            return model
-        except Exception as exc:  # noqa: BLE001 — a failed probe just means try the next model
+            overhead = _probe(client, model)
+        except Exception as exc:  # noqa: BLE001 — failed probe just means next model
             log(f"WARN: model {model} failed probe: {type(exc).__name__}: {exc}")
-    log("WARN: no model passed the probe; using cheapest by name anyway")
-    return ranked[0]
+            continue
+        extra = None
+        if overhead > LOW_OVERHEAD_TOKENS:
+            try:  # reasoning model: does it accept a low-effort knob?
+                low = _probe(client, model, extra_body={"reasoning_effort": "low"})
+                if low < overhead:
+                    overhead, extra = low, {"reasoning_effort": "low"}
+            except Exception:  # noqa: BLE001 — knob rejected; keep default behavior
+                pass
+        log(f"probe: {model} overhead={overhead} extra={extra}")
+        candidates.append((overhead, i, model, extra))
+        if overhead <= LOW_OVERHEAD_TOKENS:
+            break  # lean enough; stop spending probe tokens
+    if not candidates:
+        log("WARN: no model passed the probe; using cheapest by name anyway")
+        return ranked[0], None
+    _, _, model, extra = min(candidates)
+    return model, extra
 
 
 def load_config():
@@ -163,7 +193,7 @@ def write_snapshot(task_ids, answers, path):
     os.replace(tmp, path)
 
 
-def answer_task(client, model, task, deadline):
+def answer_task(client, model, task, deadline, extra_body=None):
     """One Fireworks call with one retry. Never raises; failures return answer ''."""
     result = {"task_id": task["task_id"], "answer": "",
               "prompt_tokens": 0, "completion_tokens": 0, "error": None,
@@ -182,6 +212,7 @@ def answer_task(client, model, task, deadline):
                 ],
                 max_tokens=max_tokens,
                 timeout=timeout,
+                **({"extra_body": extra_body} if extra_body else {}),
             )
             usage = getattr(resp, "usage", None)
             if usage is not None:  # tokens are billed per attempt — accumulate
@@ -226,12 +257,12 @@ def main():
     model = "(none)"
     try:
         client = OpenAI(base_url=cfg["base_url"], api_key=cfg["api_key"], max_retries=0)
-        model = pick_working_model(client, cfg["allowed_models"])
+        model, extra_body = pick_working_model(client, cfg["allowed_models"])
         log(f"model: {model} (from {len(cfg['allowed_models'])} allowed)")
         with ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
             for t in answerable:
                 t["category"] = categorize(t["prompt"])
-            futures = [pool.submit(answer_task, client, model, t, deadline) for t in answerable]
+            futures = [pool.submit(answer_task, client, model, t, deadline, extra_body) for t in answerable]
             for fut in as_completed(futures):
                 r = fut.result()  # answer_task never raises
                 answers[r["task_id"]] = r["answer"]
