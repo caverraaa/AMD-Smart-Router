@@ -1,25 +1,17 @@
-"""Qwen3-1.7B via llama-cpp, CPU-only, serialized behind a lock.
+"""Gemma-3-4B-it via llama-cpp, CPU-only, serialized behind a lock.
 
 llama.cpp contexts are not thread-safe: exactly one generation runs at a
-time; the Fireworks worker pool is unaffected. The model has no system
-role in our usage, so callers pass a single merged user message.
-Generation time is bounded by construction via small max_tokens caps (no
-kill-timer exists in llama-cpp) — the speed spike validates the worst
-case fits 30 s/response.
-
-Qwen3 is a hybrid-thinking model: it will emit <think>...</think>
-reasoning blocks unless told not to. Non-thinking mode is enforced at
-both layers — switched at the source by appending the `/no_think` soft
-switch to every prompt, and stripped as defense-in-depth from the raw
-output in case the switch is ignored or the block is left unclosed.
+time; the Fireworks worker pool is unaffected. Gemma has no system role,
+so callers pass a single merged user message. Generation time is bounded
+by construction via small max_tokens caps (no kill-timer exists in
+llama-cpp) — the speed spike validates the worst case fits 30 s/response.
 """
 import os
-import re
 import threading
 import time
 
 DEFAULT_MODEL_PATH = os.environ.get(
-    "LOCAL_MODEL_PATH", "/app/models/Qwen3-1.7B-Q4_K_M.gguf")
+    "LOCAL_MODEL_PATH", "/app/models/gemma-3-4b-it-Q4_K_M.gguf")
 LOCAL_MAX_TOKENS = 160
 CLASSIFY_MAX_TOKENS = 8
 LOCAL_CATEGORY_MAX_TOKENS = {
@@ -33,13 +25,6 @@ LOCAL_CATEGORY_MAX_TOKENS = {
 # TODO: recalibrated by the v6 spike (Task 2).
 LOCAL_WORST_SECONDS = 30.0
 
-# Qwen3 soft-switch to force non-thinking mode; appended to every prompt
-# sent to the local llm (source-side enforcement).
-NO_THINK_SUFFIX = " /no_think"
-# Defense-in-depth: strip any <think>...</think> block the model emits
-# despite the soft switch.
-_THINK_RE = re.compile(r"<think>.*?</think>", re.DOTALL)
-
 
 class LocalModel:
     def __init__(self, path=DEFAULT_MODEL_PATH, llama_factory=None, n_threads=2):
@@ -51,7 +36,6 @@ class LocalModel:
                                   n_threads=n_threads, verbose=False)
 
     def generate(self, user_text, max_tokens=LOCAL_MAX_TOKENS, deadline=None):
-        content = user_text + NO_THINK_SUFFIX
         if deadline is not None:
             budget = deadline - time.monotonic() - 5.0  # 5s reserve for the answer write
             if budget <= 0:
@@ -60,22 +44,16 @@ class LocalModel:
                 return ""
             try:
                 out = self._llm.create_chat_completion(
-                    messages=[{"role": "user", "content": content}],
+                    messages=[{"role": "user", "content": user_text}],
                     max_tokens=max_tokens, temperature=0.0)
             finally:
                 self._lock.release()
         else:
             with self._lock:
                 out = self._llm.create_chat_completion(
-                    messages=[{"role": "user", "content": content}],
+                    messages=[{"role": "user", "content": user_text}],
                     max_tokens=max_tokens, temperature=0.0)
-        raw = (out["choices"][0]["message"]["content"] or "").strip()
-        text = _THINK_RE.sub("", raw).strip()
-        if text.startswith("<think>"):
-            # Unclosed think block slipped through: treat as no usable
-            # answer and let the caller fall back to the cloud path.
-            return ""
-        return text
+        return (out["choices"][0]["message"]["content"] or "").strip()
 
     def classify(self, prompt, categories, deadline=None):
         instruction = ("Classify this task. Answer with exactly one word from: "
