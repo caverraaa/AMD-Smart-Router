@@ -122,6 +122,51 @@ def test_unsupported_logic_fails_closed_without_model_generation():
     assert fake.calls == []
 
 
+def test_supported_summary_is_fused_without_model_generation():
+    lm, fake = make([])
+    source = (
+        "Remote work changed office planning and reduced commuting for many staff. "
+        "Companies adopted flexible schedules and hired from a wider geographic area. "
+        "Employees gained autonomy but reported weaker boundaries between work and home."
+    )
+    prompt = (
+        "Answer in English. Summarize the following in exactly one sentence: "
+        + source
+        + "\n\nMatch requested format and length exactly. No preamble."
+    )
+
+    assert lm.answer(prompt, category="summarisation") == source.replace(". ", "; ")
+    assert fake.calls == []
+
+
+def test_unsupported_summary_fails_closed_without_model_generation():
+    lm, fake = make([])
+    prompt = "Summarize this in two bullets: One fact. Another fact."
+    assert lm.answer(prompt, category="summarisation") == ""
+    assert fake.calls == []
+
+
+def test_sentiment_answer_is_structurally_validated_and_canonicalized():
+    lm, fake = make([
+        "Mixed.\n\nReason: Great battery life but a fragile screen."
+    ])
+    answer = lm.answer(
+        "Classify the sentiment of this review: Great battery, fragile screen.",
+        category="sentiment",
+    )
+    assert answer == "Mixed. Reason: Great battery life but a fragile screen."
+    assert len(fake.calls) == 1
+
+
+def test_invalid_sentiment_answer_fails_closed_after_one_generation():
+    lm, fake = make(["Mixed."])
+    assert lm.answer(
+        "Classify the sentiment of this review: Great battery, fragile screen.",
+        category="sentiment",
+    ) == ""
+    assert len(fake.calls) == 1
+
+
 def test_classify_valid_word():
     lm, _ = make(["sentiment"])
     assert lm.classify("is this good or bad?", ("sentiment", "ner")) == "sentiment"

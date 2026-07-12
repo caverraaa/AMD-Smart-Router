@@ -14,6 +14,7 @@ except ImportError:  # executed with /app/agent on sys.path
 
 
 NER_TYPES = ("PERSON", "ORG", "LOCATION", "DATE")
+NER_REQUEST_PREFIX = "Extract all named entities and their types from: "
 NER_FIRST_SUFFIX = (
     "Use exactly one pair per line: exact source text — PERSON, ORG, LOCATION, "
     "or DATE. Preserve relative-date words."
@@ -30,6 +31,15 @@ _UNSUPPORTED_FORMAT_RE = re.compile(
 )
 _UNSUPPORTED_TYPE_RE = re.compile(
     r"\b(?:PRODUCT|EVENT|MONEY|PERCENT|QUANTITY|TIME|LANGUAGE|LAW|WORK_OF_ART)\b",
+    re.IGNORECASE,
+)
+_MULTI_ITEM_REQUEST_RE = re.compile(
+    r"\b(?:each\s+(?:review|item|text)|separately|compare|rank|multiple)\b",
+    re.IGNORECASE,
+)
+_TRAILING_DIRECTIVE_RE = re.compile(
+    r"\b(?:return|output|respond|omit|exclude)\b.{0,40}"
+    r"\b(?:json|csv|xml|ya?ml|table|entities|dates?|types?)\b",
     re.IGNORECASE,
 )
 _NER_LINE_RE = re.compile(
@@ -84,10 +94,41 @@ class NerValidation:
 
 
 @dataclass(frozen=True)
+class SentimentValidation:
+    valid: bool
+    answer: str
+    issues: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class LogicValidation:
     valid: bool
     answer: str
     issues: tuple[str, ...]
+
+
+_SENTIMENT_ANSWER_RE = re.compile(
+    r"^\s*(?P<label>positive|negative|neutral|mixed)\s*"
+    r"(?:[.!:—–-]\s*)?(?:reason\s*:\s*)?(?P<reason>.+?)\s*$",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def validate_sentiment_answer(answer):
+    """Require the reviewed English label-plus-reason output contract."""
+    if not isinstance(answer, str) or len(answer) > 500:
+        return SentimentValidation(False, "", ("invalid answer length",))
+    if any(marker in answer for marker in ("```", "{", "}", "[", "]")):
+        return SentimentValidation(False, "", ("unsupported output format",))
+    match = _SENTIMENT_ANSWER_RE.fullmatch(answer)
+    if not match:
+        return SentimentValidation(False, "", ("use label plus reason",))
+    reason = " ".join(match.group("reason").split())
+    reason_words = re.findall(r"\b[\w'-]+\b", reason, re.UNICODE)
+    if not 3 <= len(reason_words) <= 60 or not re.search(r"[A-Za-z]", reason):
+        return SentimentValidation(False, "", ("reason is missing or too long",))
+    label = match.group("label").capitalize()
+    return SentimentValidation(True, f"{label}. Reason: {reason}", ())
 
 
 def validate_logic_answer(user_text, answer):
@@ -115,13 +156,20 @@ def is_ner_request(user_text):
 
 def supports_local_ner_request(user_text):
     """Accept only the locally validated schema and line-oriented format."""
-    text = (user_text or "").strip().split("\n\n", 1)[0]
-    instruction = re.split(r"\bfrom\s*:", text, maxsplit=1,
-                           flags=re.IGNORECASE)[0]
+    text = (user_text or "").strip().split("\n\n", 1)[0].strip()
+    text = re.sub(r"^Answer in English\.\s*", "", text)
+    if not text.startswith(NER_REQUEST_PREFIX):
+        return False
+    source = text[len(NER_REQUEST_PREFIX):]
+    source_words = len(re.findall(r"\b[\w'-]+\b", source, re.UNICODE))
     return bool(
-        is_ner_request(text)
-        and not _UNSUPPORTED_FORMAT_RE.search(instruction)
-        and not _UNSUPPORTED_TYPE_RE.search(instruction)
+        source == source.strip()
+        and 3 <= source_words <= 50
+        and source.endswith(".")
+        and source.count(".") == 1
+        and not any(marker in source for marker in ("\n", "\r", "?", "!", ";", ":"))
+        and not _TRAILING_DIRECTIVE_RE.search(source)
+        and not _MULTI_ITEM_REQUEST_RE.search(text)
     )
 
 

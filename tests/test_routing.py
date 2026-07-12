@@ -25,7 +25,11 @@ class FakeLocal:
 
 
 def task(cat="sentiment"):
-    return {"task_id": "t1", "prompt": "Classify: great!", "category": cat}
+    return {
+        "task_id": "t1",
+        "prompt": "Classify the sentiment of this review: The product is great.",
+        "category": cat,
+    }
 
 
 def test_load_routing_table(tmp_path):
@@ -96,3 +100,43 @@ def test_near_deadline_skips_local_lane_goes_cloud():
                     time.monotonic() + 5.0, local=local, routing={"sentiment": "local"})
     assert r["lane"] == "fireworks"
     assert local.generate_calls == []
+
+
+def test_risk_gate_skips_unsupported_task_even_when_category_is_local():
+    client = FakeClient([fake_response("Positive and negative.")])
+    local = FakeLocal(reply="unsafe local answer")
+    unsupported = {
+        "task_id": "t1",
+        "prompt": "Classify each review separately as JSON: Great. Terrible.",
+        "category": "sentiment",
+    }
+
+    result = answer_task(
+        client, "m-x", unsupported, FUTURE,
+        local=local, routing={"sentiment": "local"},
+    )
+
+    assert result["lane"] == "fireworks"
+    assert result["risk_profile"] is None
+    assert local.generate_calls == []
+
+
+def test_deterministic_summary_uses_short_reserve_near_deadline():
+    source = (
+        "Remote work changed office planning and reduced commuting for many staff. "
+        "Companies adopted flexible schedules and hired from a wider geographic area. "
+        "Employees gained autonomy but reported weaker boundaries between work and home."
+    )
+    summary_task = {
+        "task_id": "s1",
+        "prompt": "Summarize the following in exactly one sentence: " + source,
+        "category": "summarisation",
+    }
+    local = FakeLocal(reply=source.replace(". ", "; "))
+    result = answer_task(
+        FakeClient([]), "m-x", summary_task, time.monotonic() + 2.0,
+        local=local, routing={"summarisation": "local"},
+    )
+    assert result["lane"] == "local"
+    assert result["verifiability"] == "validated"
+    assert len(local.generate_calls) == 1

@@ -42,7 +42,10 @@ def test_success(monkeypatch):
     assert r == {"task_id": "t1", "answer": "4", "prompt_tokens": 10,
                  "completion_tokens": 5, "error": None, "category": "unknown",
                  "lane": "fireworks", "fireworks_calls": 1, "retry_calls": 0,
-                 "retry_prompt_tokens": 0, "retry_completion_tokens": 0}
+                 "retry_prompt_tokens": 0, "retry_completion_tokens": 0,
+                 "complexity": "low", "verifiability": "unverified",
+                 "risk_profile": None,
+                 "risk_reason": "task intent has no reviewed local profile"}
     call = client.chat.completions.calls[0]
     assert call["model"] == "m-2b"
     assert call["max_tokens"] == m.CATEGORY_TOKEN_CAPS["unknown"][0]

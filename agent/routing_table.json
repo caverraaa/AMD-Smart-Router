@@ -4,7 +4,7 @@
 "factual": "fireworks",
 "logic": "local",
 "math": "fireworks",
-"summarisation": "fireworks",
+"summarisation": "local",
 "code_debug": "fireworks",
 "code_gen": "fireworks"
 }

@@ -25,6 +25,41 @@ def test_categorize_eval_grade_variants():
     assert categorize("Explain how a hash table achieves average O(1) lookup.") == "factual"
 
 
+def test_proved_assignment_variants_route_logic_without_broad_keyword_match():
+    assert categorize(
+        "Three athletes, Pat, Quinn, and Ray, each play a different sport: "
+        "soccer, tennis, or basketball. Pat does not play basketball. "
+        "Quinn plays soccer. Who plays tennis?"
+    ) == "logic"
+    assert categorize(
+        "Three students, Ann, Bob, and Cal, each study a different language: "
+        "Spanish, French, or German. Ann does not study German. "
+        "Bob studies Spanish. Who studies French?"
+    ) == "logic"
+    assert categorize("For each different era, explain who ruled Rome.") == "factual"
+
+
+def test_router_exposes_all_proved_golden_logic_tasks_to_local_gate():
+    import json
+    import pathlib
+
+    golden = json.loads(pathlib.Path("eval/golden_tasks.json").read_text(
+        encoding="utf-8"))
+    logic = [task for task in golden if task["category"] == "logic"]
+    assert sum(categorize(task["prompt"]) == "logic" for task in logic) == 11
+
+
+def test_all_golden_factual_tasks_reach_factual_caps_and_batching():
+    import json
+    import pathlib
+
+    golden = json.loads(pathlib.Path("eval/golden_tasks.json").read_text(
+        encoding="utf-8"))
+    factual = [task for task in golden if task["category"] == "factual"]
+    assert len(factual) == 12
+    assert all(categorize(task["prompt"]) == "factual" for task in factual)
+
+
 def test_unmatched_prompt_is_unknown():
     assert categorize("zorble the frumious bandersnatch") == "unknown"
 

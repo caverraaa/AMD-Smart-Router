@@ -11,21 +11,28 @@ import threading
 import time
 
 try:
+    from agent.local_summary import (
+        fuse_lossless_summary,
+        validate_lossless_summary,
+    )
     from agent.local_validators import (
         build_ner_prompt,
         is_ner_request,
         repair_shortened_date_spans,
         repair_trailing_descriptors,
         supports_local_ner_request,
+        validate_sentiment_answer,
         validate_logic_answer,
         validate_ner_answer,
     )
     from agent.local_tools import solve_assignment_logic
 except ImportError:  # executed with /app/agent on sys.path
+    from local_summary import fuse_lossless_summary, validate_lossless_summary
     from local_validators import (build_ner_prompt, is_ner_request,
                                   repair_shortened_date_spans,
                                   repair_trailing_descriptors,
                                   supports_local_ner_request,
+                                  validate_sentiment_answer,
                                   validate_logic_answer, validate_ner_answer)
     from local_tools import solve_assignment_logic
 
@@ -72,14 +79,21 @@ class LocalModel:
                deadline=None):
         """Category-aware local answer with fail-closed validation.
 
-        ``generate`` auto-detects NER for compatibility with the current
-        main.py. A future integration may pass ``category`` explicitly.
-        Invalid NER gets one local repair attempt; a second invalid answer
-        becomes ``""`` so the existing caller falls back to Fireworks.
+        ``generate`` auto-detects NER for compatibility. Logic and summary use
+        deterministic tools, sentiment has a structural output validator, and
+        invalid NER gets one local repair attempt. Any rejected answer becomes
+        ``""`` so the existing caller falls back to Fireworks.
         """
         if category == "logic":
             solved = solve_assignment_logic(user_text)
             checked = validate_logic_answer(user_text, solved)
+            return checked.answer if checked.valid else ""
+        if category == "summarisation":
+            fused = fuse_lossless_summary(user_text)
+            return fused if validate_lossless_summary(user_text, fused) else ""
+        if category == "sentiment":
+            generated = self._generate_once(user_text, max_tokens, deadline)
+            checked = validate_sentiment_answer(generated)
             return checked.answer if checked.valid else ""
         if category == "ner" or (category is None and is_ner_request(user_text)):
             if not supports_local_ner_request(user_text):

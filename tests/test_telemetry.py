@@ -28,14 +28,18 @@ def test_answer_task_defaults_unknown_category():
 def test_collector_logs_per_task_line(monkeypatch, tmp_path, capsys):
     monkeypatch.setattr(m, "MAX_WORKERS", 1)
     setup_env(monkeypatch, tmp_path, [
-        {"task_id": "t1", "prompt": "Classify the sentiment of this review: great."},
+        {"task_id": "t1", "prompt": (
+            "Classify the sentiment of this review: The product is great."
+        )},
     ])
     patch_client(monkeypatch, [fake_response("Positive")])
     assert m.main() == 0
     err = capsys.readouterr().err
     line = next(l for l in err.splitlines() if l.startswith("task=t1"))
     assert re.fullmatch(
-        r"task=t1 cat=sentiment pt=\d+ ct=\d+ calls=1 retries=0 lane=fireworks",
+        r"task=t1 cat=sentiment pt=\d+ ct=\d+ calls=1 retries=0 "
+        r"lane=fireworks complexity=low verify=validated "
+        r"profile=sentiment-label-reason-v1",
         line)
 
 

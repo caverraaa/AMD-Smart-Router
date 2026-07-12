@@ -7,6 +7,7 @@ from agent.local_validators import (
     repair_shortened_date_spans,
     repair_trailing_descriptors,
     supports_local_ner_request,
+    validate_sentiment_answer,
     validate_ner_answer,
     validate_logic_answer,
 )
@@ -40,6 +41,27 @@ def test_local_ner_rejects_custom_formats_and_unsupported_types():
         "Extract PRODUCT and EVENT entities from: Pixel launched at I/O.")
     assert supports_local_ner_request(
         "Extract all named entities and their types from: JSON Corp hired Maria.")
+
+
+def test_local_ner_rejects_trailing_and_partial_directives():
+    assert not supports_local_ner_request(
+        "Extract all named entities and their types from: Ada joined AMD. Return JSON.")
+    assert not supports_local_ner_request(
+        "Extract only organization entities from: Ada joined AMD in Austin.")
+    assert not supports_local_ner_request(
+        "Extract all named entities but omit dates from: Ada joined AMD last March.")
+
+
+def test_sentiment_validator_requires_label_and_brief_reason():
+    result = validate_sentiment_answer(
+        "Mixed.\n\nReason: Great battery life but a fragile screen."
+    )
+    assert result.valid
+    assert result.answer == (
+        "Mixed. Reason: Great battery life but a fragile screen."
+    )
+    for invalid in ("Mixed.", '{"label":"mixed"}', "Joy. Great product."):
+        assert not validate_sentiment_answer(invalid).valid
 
 
 def test_parser_accepts_compact_formats_and_normalizes_types():

@@ -24,6 +24,11 @@ try:
         plan_batches,
     )
     from agent.router import build_user_message, categorize
+    from agent.task_risk import (
+        LANE_DETERMINISTIC_LOCAL,
+        PROFILE_SUMMARY_LOSSLESS_FUSION_V1,
+        assess_task_risk,
+    )
 except ImportError:  # executed as a script (python /app/agent/main.py)
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     from agent.batching import (
@@ -37,6 +42,11 @@ except ImportError:  # executed as a script (python /app/agent/main.py)
         plan_batches,
     )
     from agent.router import build_user_message, categorize
+    from agent.task_risk import (
+        LANE_DETERMINISTIC_LOCAL,
+        PROFILE_SUMMARY_LOSSLESS_FUSION_V1,
+        assess_task_risk,
+    )
 
 SYSTEM_PROMPT = "Answer in English. Be accurate and brief."
 # Caps include hidden reasoning tokens. Short-answer categories get tight
@@ -69,6 +79,8 @@ OFFLINE_MODEL_POLICY = (
 # agent.local_model.LOCAL_WORST_SECONDS — that copy bounds LocalModel's own
 # internal budget; this copy gates whether the lane is attempted at all.
 LOCAL_WORST_SECONDS = 30.0
+DETERMINISTIC_LOCAL_RESERVE_SECONDS = 1.0
+ENABLED_LOCAL_PROFILES = frozenset((PROFILE_SUMMARY_LOSSLESS_FUSION_V1,))
 
 _SIZE_RE = re.compile(r"(\d+(?:\.\d+)?)b(?![a-z0-9])")
 
@@ -241,10 +253,32 @@ def answer_task(client, model, task, deadline, extra_body=None, local=None, rout
               "prompt_tokens": 0, "completion_tokens": 0, "error": None,
               "category": task.get("category", "unknown"), "lane": "fireworks",
               "fireworks_calls": 0, "retry_calls": 0,
-              "retry_prompt_tokens": 0, "retry_completion_tokens": 0}
+              "retry_prompt_tokens": 0, "retry_completion_tokens": 0,
+              "complexity": "unknown", "verifiability": "unverified",
+              "risk_profile": None, "risk_reason": "risk assessment failed"}
     routing = routing or {}
+    try:
+        risk = assess_task_risk(
+            task["prompt"], result["category"],
+            enabled_profiles=ENABLED_LOCAL_PROFILES,
+        )
+        result["complexity"] = risk.complexity.level
+        result["verifiability"] = risk.verifiability
+        result["risk_profile"] = risk.profile
+        result["risk_reason"] = "; ".join(risk.reasons)
+        local_eligible = risk.local_eligible
+        local_reserve = (
+            DETERMINISTIC_LOCAL_RESERVE_SECONDS
+            if risk.lane == LANE_DETERMINISTIC_LOCAL
+            else LOCAL_WORST_SECONDS
+        )
+    except Exception as exc:  # noqa: BLE001 - gate failure must use cloud
+        local_eligible = False
+        local_reserve = LOCAL_WORST_SECONDS
+        result["risk_reason"] = f"risk gate error: {type(exc).__name__}"
     if (local is not None and routing.get(result["category"]) == "local"
-            and time.monotonic() + LOCAL_WORST_SECONDS < deadline):
+            and local_eligible
+            and time.monotonic() + local_reserve < deadline):
         try:
             local_prompt = (
                 "Answer in English. "
@@ -261,6 +295,13 @@ def answer_task(client, model, task, deadline, extra_body=None, local=None, rout
                 return result  # zero Fireworks tokens
         except Exception as exc:  # noqa: BLE001 — local failure falls back to cloud
             log(f"WARN: local lane failed for {task['task_id']}: {type(exc).__name__}: {exc}")
+    elif (local is not None and routing.get(result["category"]) == "local"
+          and not local_eligible):
+        log(
+            f"route task={task['task_id']} cat={result['category']} "
+            f"lane=fireworks complexity={result['complexity']} "
+            f"verify={result['verifiability']} reason={result['risk_reason']}"
+        )
     effective_extra = None if result["category"] in FULL_EFFORT_CATEGORIES else extra_body
     first_cap, retry_cap = token_caps_for(result["category"])
     attempts = ((FIRST_TIMEOUT_SECONDS, first_cap), (RETRY_TIMEOUT_SECONDS, retry_cap))
@@ -479,7 +520,10 @@ def main():
                 answers[r["task_id"]] = r["answer"]
                 log(f"task={r['task_id']} cat={r['category']} "
                     f"pt={r['prompt_tokens']} ct={r['completion_tokens']} "
-                    f"calls={r['fireworks_calls']} retries={r['retry_calls']} lane={r['lane']}")
+                    f"calls={r['fireworks_calls']} retries={r['retry_calls']} "
+                    f"lane={r['lane']} complexity={r['complexity']} "
+                    f"verify={r['verifiability']} "
+                    f"profile={r['risk_profile'] or '-'}")
                 task_prompt_tokens += r["prompt_tokens"]
                 task_completion_tokens += r["completion_tokens"]
                 task_calls += r["fireworks_calls"]

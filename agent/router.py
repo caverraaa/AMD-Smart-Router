@@ -5,6 +5,11 @@ routes to Fireworks — misroutes may only ever cost tokens, not accuracy).
 """
 import re
 
+try:
+    from agent.local_tools import solve_assignment_logic
+except ImportError:  # executed with /app/agent on sys.path
+    from local_tools import solve_assignment_logic
+
 CATEGORIES = (
     "sentiment", "ner", "summarisation", "code_debug",
     "code_gen", "math", "logic", "factual", "unknown",
@@ -18,7 +23,9 @@ _RULES = [
     ("code_debug", r"(bug|debug|fix|fails|incorrect|error)\b.*\b(code|function|def |snippet)|(code|function|def |snippet).*\b(bug|debug|has a bug|fails|fix)"),
     ("math", r"\d+\s*%|\bpercent|\bcalculate\b|how (much|many)|\bremain\b|\bkm/h\b|\bmph\b|\brevenue\b|\bprofit\b|\bsum of\b"),
     ("logic", r"who (owns|has|is|does)|\bdeduce\b|logic puzzle|each own|\bseated\b|\bsits\b|\bconstraints? must\b"),
-    ("factual", r"^what (is|are|was|were)\b|\bcapital of\b|\bexplain\b|\bdefine\b|\bdescribe\b|how does .* work"),
+    ("factual", r"^what (?:is|are|was|were|element)\b|"
+                r"^who (?:wrote|painted)\b|\bcapital of\b|\bexplain\b|"
+                r"\bdefine\b|\bdescribe\b|how does .* work"),
 ]
 _COMPILED = [(cat, re.compile(pattern, re.IGNORECASE | re.DOTALL)) for cat, pattern in _RULES]
 
@@ -43,6 +50,14 @@ CONSTRAINTS = {
 
 
 def categorize(prompt):
+    # A proved assignment puzzle is logic even when its query uses a verb not
+    # covered by the cheap lexical rules (plays, visits, studies, and so on).
+    # Unsupported shapes return empty and continue through the normal router.
+    try:
+        if solve_assignment_logic(prompt):
+            return "logic"
+    except Exception:  # categorizer failure must only cost cloud tokens
+        pass
     skip_classification_lanes = bool(_CLASSIFICATION_GUARD.search(prompt))
     for cat, rx in _COMPILED:
         if skip_classification_lanes and cat in ("sentiment", "ner"):

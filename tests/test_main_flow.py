@@ -123,7 +123,9 @@ def test_local_lane_wired_through_main(monkeypatch, tmp_path, capsys):
     routing_path.write_text(json.dumps({"sentiment": "local"}), encoding="utf-8")
     monkeypatch.setenv("ROUTING_TABLE", str(routing_path))
     out = setup_env(monkeypatch, tmp_path, [
-        {"task_id": "t1", "prompt": "Classify the sentiment of this review: great!"},
+        {"task_id": "t1", "prompt": (
+            "Classify the sentiment of this review: The product is great."
+        )},
     ])
     # No outcomes are provided: selection and a successful local task must
     # make zero Fireworks calls.
