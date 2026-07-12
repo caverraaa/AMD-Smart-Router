@@ -3,8 +3,8 @@
 "ner": "local",
 "factual": "fireworks",
 "logic": "local",
-"math": "fireworks",
+"math": "local",
 "summarisation": "local",
-"code_debug": "fireworks",
-"code_gen": "fireworks"
+"code_debug": "local",
+"code_gen": "local"
 }

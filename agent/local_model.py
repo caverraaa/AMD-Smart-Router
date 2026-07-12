@@ -11,10 +11,12 @@ import threading
 import time
 
 try:
+    from agent.code_tools import solve_code_task
     from agent.local_summary import (
         fuse_lossless_summary,
         validate_lossless_summary,
     )
+    from agent.math_tools import solve_math
     from agent.local_validators import (
         build_ner_prompt,
         is_ner_request,
@@ -27,7 +29,9 @@ try:
     )
     from agent.local_tools import solve_assignment_logic
 except ImportError:  # executed with /app/agent on sys.path
+    from code_tools import solve_code_task
     from local_summary import fuse_lossless_summary, validate_lossless_summary
+    from math_tools import solve_math
     from local_validators import (build_ner_prompt, is_ner_request,
                                   repair_shortened_date_spans,
                                   repair_trailing_descriptors,
@@ -88,6 +92,10 @@ class LocalModel:
             solved = solve_assignment_logic(user_text)
             checked = validate_logic_answer(user_text, solved)
             return checked.answer if checked.valid else ""
+        if category == "math":
+            return solve_math(user_text)
+        if category in ("code_debug", "code_gen"):
+            return solve_code_task(user_text, category)
         if category == "summarisation":
             fused = fuse_lossless_summary(user_text)
             return fused if validate_lossless_summary(user_text, fused) else ""

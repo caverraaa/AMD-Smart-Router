@@ -17,13 +17,17 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 
 try:
+    from agent.code_tools import solve_code_task
     from agent.local_summary import supports_lossless_summary
     from agent.local_tools import solve_assignment_logic
     from agent.local_validators import supports_local_ner_request
+    from agent.math_tools import solve_math
 except ImportError:  # executed with /app/agent on sys.path
+    from code_tools import solve_code_task
     from local_summary import supports_lossless_summary
     from local_tools import solve_assignment_logic
     from local_validators import supports_local_ner_request
+    from math_tools import solve_math
 
 
 LANE_CLOUD = "cloud"
@@ -43,6 +47,9 @@ PROFILE_LOGIC_ASSIGNMENT_V1 = "logic-assignment-v1"
 PROFILE_NER_EXACT_SPAN_V1 = "ner-exact-span-v1"
 PROFILE_SENTIMENT_LABEL_REASON_V1 = "sentiment-label-reason-v1"
 PROFILE_SUMMARY_LOSSLESS_FUSION_V1 = "summary-lossless-fusion-v1"
+PROFILE_MATH_INVENTORY_REMAINDER_V1 = "math-inventory-remainder-v1"
+PROFILE_CODE_DEBUG_VERIFIED_V1 = "code-debug-verified-v1"
+PROFILE_CODE_GEN_VERIFIED_V1 = "code-gen-verified-v1"
 
 _KNOWN_CATEGORIES = frozenset({
     "sentiment", "ner", "summarisation", "code_debug", "code_gen",
@@ -292,11 +299,53 @@ def assess_task_risk(
             ("lossless fusion is structurally proved and rubric-validated",),
         )
 
+    if normalized_category == "math":
+        try:
+            answer = solve_math(text)
+        except Exception:  # exact solver failure must only increase API cost
+            answer = ""
+        if answer:
+            return TaskRiskDecision(
+                normalized_category,
+                LANE_DETERMINISTIC_LOCAL,
+                VERIFIABILITY_PROVED,
+                complexity,
+                PROFILE_MATH_INVENTORY_REMAINDER_V1,
+                ("answer recomputed with exact rational inventory arithmetic",),
+            )
+        return _cloud(
+            normalized_category,
+            complexity,
+            "no reviewed deterministic math profile matched",
+        )
+
+    if normalized_category in ("code_debug", "code_gen"):
+        try:
+            source = solve_code_task(text, normalized_category)
+        except Exception:  # validator failure must only increase API cost
+            source = ""
+        if source:
+            profile = (
+                PROFILE_CODE_DEBUG_VERIFIED_V1
+                if normalized_category == "code_debug"
+                else PROFILE_CODE_GEN_VERIFIED_V1
+            )
+            return TaskRiskDecision(
+                normalized_category,
+                LANE_DETERMINISTIC_LOCAL,
+                VERIFIABILITY_VALIDATED,
+                complexity,
+                profile,
+                ("canonical code passed AST allowlist and property tests",),
+            )
+        return _cloud(
+            normalized_category,
+            complexity,
+            "no execution-validated deterministic code profile matched",
+        )
+
     cloud_reason = {
         "factual": "factual correctness is not locally verifiable",
-        "math": "no reviewed deterministic math profile matched",
-        "code_debug": "corrected code is not locally execution-validated",
-        "code_gen": "generated code is not locally execution-validated",
         "unknown": "task intent has no reviewed local profile",
     }.get(normalized_category, "category has no reviewed local profile")
     return _cloud(normalized_category, complexity, cloud_reason)

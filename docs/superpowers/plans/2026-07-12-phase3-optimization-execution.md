@@ -42,7 +42,8 @@ and new local pipeline/validator/tool modules. Developer B does not edit
 - [x] P4: improve local NER to the tightened deterministic 12/12 gate.
 - [x] P7: add local structural validators and one repair attempt.
 - [x] P8: keep factual cloud; solve supported logic locally with fail-closed fallback.
-- [ ] P10: prototype deterministic math/code/knowledge tools.
+- [x] P10: enable proved math and execution-validated code tools; keep factual
+  cloud after the offline-knowledge experiment failed its truth gate.
 
 ## Experiment ledger
 
@@ -57,6 +58,7 @@ probe plus task prompt and completion tokens.
 | 2026-07-12 | working tree | P3–P6: no probes, compact prompts/caps, sentiment+NER local | 8/8 | 0 | 0 | 656 | 753 | 1,409 | 12.6–20.1s | pass x4; 6 calls, 0 retries |
 | 2026-07-12 | `phase3-local-batching` | P7–P9: validated logic local, factual batches 3–4 | 8/8 | 0 | 0 | 542 | 570 | 1,112 | 19.8s | pass; 5 calls, 0 retries |
 | 2026-07-12 | `codex/phase3-risk-gate` | P9.5: task risk gate + lossless summary fusion | 8/8 | 0 | 0 | 383 | 490 | 873 | 19.7s | pass; 4 calls, 0 retries |
+| 2026-07-12 | `codex/phase3-offline-tools` | P10: deterministic math + validated code tools | 8/8 | 0 | 0 | 90 | 78 | 168 | 19.5s | pass x2; 1 call, 0 retries |
 
 The P1b container was `linux/amd64`, 1,784,945,262 bytes. The repository's
 `.env` model ID was obsolete and returned 404, so the valid text-model catalog
@@ -131,6 +133,40 @@ safe retry caps preserve completeness.
   satisfies every stored expected-intent rubric, but it does not reduce word
   count. Do not promote this candidate to the submission image until the
   external semantic judge confirms that it accepts fusion as summarisation.
+
+## Priority 10 results
+
+- The exact inventory solver covers all 6/6 stored math prompts and practice
+  with rational arithmetic. It accepts only percent-of-initial followed by a
+  fixed removal, requires integral discrete counts, and rejects alternative
+  operation order, implicit rounding, impossible totals, extra instructions,
+  returns/restocking, or unreviewed time context.
+- Twelve semantic code profiles cover 6/6 `code_debug` and 6/6 `code_gen`
+  prompts plus both practice code tasks. Production contains no task IDs or
+  prompt-answer table. Each canonical Python function passes an AST allowlist,
+  restricted execution, and deterministic property tests before it is emitted;
+  prompt-provided code is parsed for its signature but never executed.
+- Fresh validation of all 12 code profiles took about 0.04 seconds and is
+  cached afterward. A four-worker audit of all 18 math/code tasks completed in
+  under 0.06 seconds. Unsupported paraphrases fail closed to Fireworks.
+- Broad offline factual remains rejected: the local model was reproducibly
+  11/12 and its wrong knowledge claim could not be caught structurally.
+  Self-contained extraction covered 0/12. A complete periodic/SI reference
+  could safely cover only 3/12 while preserving the same number of factual
+  batch calls, so no benchmark-shaped knowledge table was added and factual
+  remains cloud/batchable.
+- Two Docker practice runs were identical at 8/8, 168 tokens, one Fireworks
+  call, and zero probes/retries. This is 80.8% below P9.5, 84.9% below P7–P9,
+  and 90.9% below the measured 1,838-token baseline.
+- On the stored 72-task topology, 59 tasks now select local profiles; the
+  remaining 12 factual tasks retain three 4-task batches and the unsupported
+  logic prompt retains its known individual cloud path. This is a static
+  routing projection, not an external private-golden judge result.
+- The final suite passed 299 tests. Independent safety and value reviews found
+  no blocking P10 issue. The linux/amd64 image is 1,785,019,982 bytes.
+- The inherited P9.5 lossless-summary semantic caveat still gates promotion of
+  the combined candidate; P10 itself adds only recomputed or execution-tested
+  local answers.
 
 ## Merge order
 

@@ -5,6 +5,9 @@ from agent.task_risk import (
     LANE_DETERMINISTIC_LOCAL,
     LANE_VALIDATED_LOCAL,
     PROFILE_LOGIC_ASSIGNMENT_V1,
+    PROFILE_CODE_DEBUG_VERIFIED_V1,
+    PROFILE_CODE_GEN_VERIFIED_V1,
+    PROFILE_MATH_INVENTORY_REMAINDER_V1,
     PROFILE_NER_EXACT_SPAN_V1,
     PROFILE_SENTIMENT_LABEL_REASON_V1,
     PROFILE_SUMMARY_LOSSLESS_FUSION_V1,
@@ -86,6 +89,41 @@ def test_complexity_and_verifiability_are_independent_signals():
     assert decision.lane == LANE_CLOUD
     assert decision.verifiability == VERIFIABILITY_UNVERIFIED
     assert "not locally verifiable" in decision.reasons[0]
+
+
+def test_exact_inventory_math_is_proved_while_other_math_stays_cloud():
+    supported = assess_task_risk(
+        "A store has 240 items. It sells 15% on Monday and 60 more on Tuesday. "
+        "How many items remain?",
+        "math",
+    )
+    unsupported = assess_task_risk("Solve x squared plus two x equals zero.", "math")
+
+    assert supported.lane == LANE_DETERMINISTIC_LOCAL
+    assert supported.verifiability == VERIFIABILITY_PROVED
+    assert supported.profile == PROFILE_MATH_INVENTORY_REMAINDER_V1
+    assert unsupported.lane == LANE_CLOUD
+
+
+def test_execution_validated_code_profiles_are_local_and_unknown_code_is_cloud():
+    debug = assess_task_risk(
+        "This function should check if a number is even but has a bug: "
+        "def is_even(n): return n % 2 == 1. Find and fix it.",
+        "code_debug",
+    )
+    generated = assess_task_risk(
+        "Write a Python function that returns the intersection of two integer "
+        "lists as a list of unique, sorted elements.",
+        "code_gen",
+    )
+    unsupported = assess_task_risk("Write arbitrary Python code.", "code_gen")
+
+    assert debug.lane == LANE_DETERMINISTIC_LOCAL
+    assert debug.verifiability == VERIFIABILITY_VALIDATED
+    assert debug.profile == PROFILE_CODE_DEBUG_VERIFIED_V1
+    assert generated.lane == LANE_DETERMINISTIC_LOCAL
+    assert generated.profile == PROFILE_CODE_GEN_VERIFIED_V1
+    assert unsupported.lane == LANE_CLOUD
 
 
 def test_complexity_depends_on_task_shape_not_only_category():

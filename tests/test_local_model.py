@@ -139,6 +139,42 @@ def test_supported_summary_is_fused_without_model_generation():
     assert fake.calls == []
 
 
+def test_supported_math_is_solved_without_model_generation():
+    lm, fake = make([])
+    prompt = (
+        "Answer in English. A store has 240 items. It sells 15% on Monday "
+        "and 60 more on Tuesday. How many items remain?\n\n"
+        "Answer first; show only essential working."
+    )
+    assert lm.answer(prompt, category="math") == "144"
+    assert fake.calls == []
+
+
+def test_unsupported_math_fails_closed_without_model_generation():
+    lm, fake = make([])
+    assert lm.answer("Solve x squared plus two x equals zero.", category="math") == ""
+    assert fake.calls == []
+
+
+def test_supported_code_is_generated_and_validated_without_model_generation():
+    lm, fake = make([])
+    prompt = (
+        "Answer in English. Write a Python function that returns the intersection "
+        "of two integer lists as a list of unique, sorted elements.\n\n"
+        "Output only the code."
+    )
+    answer = lm.answer(prompt, category="code_gen")
+    assert answer.startswith("def sorted_intersection(first, second):")
+    assert "```" not in answer
+    assert fake.calls == []
+
+
+def test_unsupported_code_fails_closed_without_model_generation():
+    lm, fake = make([])
+    assert lm.answer("Write arbitrary Python code.", category="code_gen") == ""
+    assert fake.calls == []
+
+
 def test_unsupported_summary_fails_closed_without_model_generation():
     lm, fake = make([])
     prompt = "Summarize this in two bullets: One fact. Another fact."
