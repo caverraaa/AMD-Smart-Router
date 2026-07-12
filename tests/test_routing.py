@@ -73,22 +73,14 @@ def test_category_routed_to_fireworks_never_touches_local():
     assert local.generate_calls == []
 
 
-def test_unknown_category_classified_then_routed():
-    client = FakeClient([])
-    local = FakeLocal(reply="Positive — nice.", classify_reply="sentiment")
-    r = answer_task(client, "m-x", task("unknown"), FUTURE,
-                    local=local, routing={"sentiment": "local"})
-    assert r["lane"] == "local"
-    assert r["category"] == "sentiment"
-
-
-def test_unknown_unparseable_classification_goes_cloud():
+def test_unknown_category_always_goes_cloud():
     client = FakeClient([fake_response("cloud answer")])
-    local = FakeLocal(classify_reply=None)
+    local = FakeLocal(reply="should not be used", classify_reply="sentiment")
     r = answer_task(client, "m-x", task("unknown"), FUTURE,
                     local=local, routing={"sentiment": "local"})
     assert r["lane"] == "fireworks"
     assert r["answer"] == "cloud answer"
+    assert local.generate_calls == []
 
 
 def test_no_local_model_behaves_as_before():
