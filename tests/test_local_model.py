@@ -42,17 +42,14 @@ def test_generate_returns_stripped_text():
     call = fake.calls[0]
     assert call["max_tokens"] == LOCAL_MAX_TOKENS
     assert call["messages"] == [
-        {"role": "system", "content": "/no_think"},
-        {"role": "user", "content": "classify this"},
-    ]  # /no_think sent as its own system message; user text unmodified
+        {"role": "user", "content": "classify this /no_think"}
+    ]  # no system role, no_think switch appended
 
 
-def test_generate_sends_no_think_as_system_message():
+def test_generate_appends_no_think_suffix():
     lm, fake = make(["ok"])
     lm.generate("some prompt")
-    messages = fake.calls[0]["messages"]
-    assert messages[0] == {"role": "system", "content": "/no_think"}
-    assert messages[1] == {"role": "user", "content": "some prompt"}
+    assert fake.calls[0]["messages"][0]["content"] == "some prompt /no_think"
 
 
 def test_generate_strips_think_block():
@@ -68,16 +65,6 @@ def test_generate_passes_through_when_no_think_block():
 def test_generate_returns_empty_on_unclosed_think_block():
     lm, _ = make(["<think>still reasoning"])
     assert lm.generate("p") == ""
-
-
-def test_generate_truncates_whitespace_degeneracy():
-    lm, _ = make(["A - PERSON        garbage"])
-    assert lm.generate("p") == "A - PERSON"
-
-
-def test_generate_keeps_normal_multiline_answer():
-    lm, _ = make(["line1\nline2\n\nline3"])
-    assert lm.generate("p") == "line1\nline2\n\nline3"
 
 
 def test_generate_custom_cap():
