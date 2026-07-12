@@ -13,9 +13,11 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from openai import OpenAI
 
 try:
+    from agent.local_model import LOCAL_CATEGORY_MAX_TOKENS, LOCAL_WORST_SECONDS
     from agent.router import build_user_message, categorize
 except ImportError:  # executed as a script (python /app/agent/main.py)
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from agent.local_model import LOCAL_CATEGORY_MAX_TOKENS, LOCAL_WORST_SECONDS
     from agent.router import build_user_message, categorize
 
 SYSTEM_PROMPT = "Answer in English. Be accurate and brief."
@@ -32,10 +34,9 @@ LOW_OVERHEAD_TOKENS = 30  # a model this lean is good enough; stop spending prob
 KNOB_TRIGGER_TOKENS = 5  # any hidden-reasoning signal above estimate noise should attempt the cheaper knob
 PROBE_PROMPT = "What is 2+2? Answer with just the number."
 FULL_EFFORT_CATEGORIES = ("logic",)  # low reasoning effort measurably breaks deduction puzzles
-# Worst-case lock wait + generation reserve for the local lane. Mirrors
-# agent.local_model.LOCAL_WORST_SECONDS — that copy bounds LocalModel's own
-# internal budget; this copy gates whether the lane is attempted at all.
-LOCAL_WORST_SECONDS = 30.0
+# LOCAL_WORST_SECONDS is imported from agent.local_model (single source of
+# truth): it gates whether the local lane is attempted at all, and also
+# bounds LocalModel's own internal generation budget.
 
 _SIZE_RE = re.compile(r"(\d+(?:\.\d+)?)b(?![a-z0-9])")
 
@@ -219,9 +220,10 @@ def answer_task(client, model, task, deadline, extra_body=None, local=None, rout
     if (local is not None and routing.get(result["category"]) == "local"
             and time.monotonic() + LOCAL_WORST_SECONDS < deadline):
         try:
+            max_tokens = LOCAL_CATEGORY_MAX_TOKENS.get(result["category"], 160)
             text = local.generate(
                 "Answer in English. " + build_user_message(task["prompt"], result["category"]),
-                deadline=deadline)
+                max_tokens=max_tokens, deadline=deadline)
             if text:
                 result["answer"] = text
                 result["lane"] = "local"
