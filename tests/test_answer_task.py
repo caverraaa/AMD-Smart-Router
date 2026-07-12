@@ -38,7 +38,7 @@ def test_success(monkeypatch):
     client = FakeClient([fake_response("4")])
     r = answer_task(client, "m-2b", TASK, FUTURE)
     assert r == {"task_id": "t1", "answer": "4", "prompt_tokens": 10,
-                 "completion_tokens": 5, "error": None}
+                 "completion_tokens": 5, "error": None, "category": "unknown", "lane": "fireworks"}
     call = client.chat.completions.calls[0]
     assert call["model"] == "m-2b"
     assert call["max_tokens"] == m.MAX_TOKENS

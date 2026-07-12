@@ -12,6 +12,12 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from openai import OpenAI
 
+try:
+    from agent.router import build_user_message, categorize
+except ImportError:  # executed as a script (python /app/agent/main.py)
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from agent.router import build_user_message, categorize
+
 SYSTEM_PROMPT = "You are a precise task execution agent. Give direct, minimal, and concise answers without explanation, markdown tables, preambles, or conversational filler. If asked for code, return ONLY the raw code block. If asked for a fact, return only the fact."
 MAX_TOKENS = 2048  # reasoning models spend hidden tokens before the answer; 1024 truncated them
 RETRY_MAX_TOKENS = 4096  # retry after an empty/truncated response gets more headroom
@@ -160,7 +166,8 @@ def write_snapshot(task_ids, answers, path):
 def answer_task(client, model, task, deadline):
     """One Fireworks call with one retry. Never raises; failures return answer ''."""
     result = {"task_id": task["task_id"], "answer": "",
-              "prompt_tokens": 0, "completion_tokens": 0, "error": None}
+              "prompt_tokens": 0, "completion_tokens": 0, "error": None,
+              "category": task.get("category", "unknown"), "lane": "fireworks"}
     attempts = ((FIRST_TIMEOUT_SECONDS, MAX_TOKENS), (RETRY_TIMEOUT_SECONDS, RETRY_MAX_TOKENS))
     for attempt, (timeout, max_tokens) in enumerate(attempts):
         if time.monotonic() >= deadline:
@@ -222,10 +229,14 @@ def main():
         model = pick_working_model(client, cfg["allowed_models"])
         log(f"model: {model} (from {len(cfg['allowed_models'])} allowed)")
         with ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
+            for t in answerable:
+                t["category"] = categorize(t["prompt"])
             futures = [pool.submit(answer_task, client, model, t, deadline) for t in answerable]
             for fut in as_completed(futures):
                 r = fut.result()  # answer_task never raises
                 answers[r["task_id"]] = r["answer"]
+                log(f"task={r['task_id']} cat={r['category']} "
+                    f"pt={r['prompt_tokens']} ct={r['completion_tokens']} lane={r['lane']}")
                 prompt_tokens += r["prompt_tokens"]
                 completion_tokens += r["completion_tokens"]
                 if r["error"]:
