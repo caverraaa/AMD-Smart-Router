@@ -10,9 +10,6 @@ import os
 import re
 import sys
 
-_VERDICT_RE = re.compile(r"\b(YES|NO)\b", re.IGNORECASE)
-
-
 def judge_prompt(task, answer):
     return (f"Task given to an AI assistant: {task['prompt']}\n"
             f"Expected (rubric): {task['expected_intent']}\n"
@@ -22,8 +19,11 @@ def judge_prompt(task, answer):
 
 
 def parse_verdict(text):
-    matches = _VERDICT_RE.findall(text or "")
-    return bool(matches) and matches[-1].upper() == "YES"
+    m = re.match(r"\s*\**\s*(YES|NO)\b", text or "", re.IGNORECASE)
+    if m:
+        return m.group(1).upper() == "YES"
+    matches = re.findall(r"\b(YES|NO)\b", text or "")  # uppercase only: a trailing verdict
+    return bool(matches) and matches[-1] == "YES"
 
 
 def score_results(golden, results, verdicts):
