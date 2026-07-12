@@ -1,0 +1,73 @@
+import threading
+
+from agent.local_model import CLASSIFY_MAX_TOKENS, LOCAL_MAX_TOKENS, LocalModel
+
+
+class FakeLlama:
+    def __init__(self, replies):
+        self.replies = list(replies)
+        self.calls = []
+        self.active = 0
+        self.max_active = 0
+        self._lock = threading.Lock()
+
+    def create_chat_completion(self, **kwargs):
+        with self._lock:
+            self.active += 1
+            self.max_active = max(self.max_active, self.active)
+        self.calls.append(kwargs)
+        reply = self.replies.pop(0)
+        with self._lock:
+            self.active -= 1
+        return {"choices": [{"message": {"content": reply}}]}
+
+
+def make(replies):
+    fake = FakeLlama(replies)
+    lm = LocalModel(path="unused.gguf", llama_factory=lambda **kw: fake)
+    return lm, fake
+
+
+def test_generate_returns_stripped_text():
+    lm, fake = make(["  Positive — praises battery.  "])
+    assert lm.generate("classify this") == "Positive — praises battery."
+    call = fake.calls[0]
+    assert call["max_tokens"] == LOCAL_MAX_TOKENS
+    assert call["messages"] == [{"role": "user", "content": "classify this"}]  # no system role
+
+
+def test_generate_custom_cap():
+    lm, fake = make(["x"])
+    lm.generate("p", max_tokens=64)
+    assert fake.calls[0]["max_tokens"] == 64
+
+
+def test_classify_valid_word():
+    lm, _ = make(["sentiment"])
+    assert lm.classify("is this good or bad?", ("sentiment", "ner")) == "sentiment"
+
+
+def test_classify_normalizes_punctuation_and_case():
+    lm, _ = make([" Sentiment. "])
+    assert lm.classify("x", ("sentiment", "ner")) == "sentiment"
+
+
+def test_classify_garbage_returns_none():
+    lm, _ = make(["I think this could be several things"])
+    assert lm.classify("x", ("sentiment", "ner")) is None
+
+
+def test_classify_uses_small_token_cap():
+    lm, fake = make(["sentiment"])
+    lm.classify("x", ("sentiment",))
+    assert fake.calls[0]["max_tokens"] == CLASSIFY_MAX_TOKENS
+
+
+def test_concurrent_calls_serialize():
+    lm, fake = make(["a"] * 8)
+    threads = [threading.Thread(target=lm.generate, args=("p",)) for _ in range(8)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert fake.max_active == 1  # the lock never admits two generations at once
