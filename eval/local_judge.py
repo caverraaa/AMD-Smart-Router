@@ -63,7 +63,7 @@ def main():
             verdicts[t["task_id"]] = False
             continue
         resp = client.chat.completions.create(
-            model=judge_model, max_tokens=2048, timeout=30,
+            model=judge_model, max_tokens=2048, temperature=0.0, timeout=30,
             messages=[{"role": "user", "content": judge_prompt(t, answer)}])
         verdicts[t["task_id"]] = parse_verdict(resp.choices[0].message.content)
 

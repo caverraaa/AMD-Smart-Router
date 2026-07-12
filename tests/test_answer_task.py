@@ -42,6 +42,7 @@ def test_success(monkeypatch):
     call = client.chat.completions.calls[0]
     assert call["model"] == "m-2b"
     assert call["max_tokens"] == m.MAX_TOKENS
+    assert call["temperature"] == 0.0
     assert call["timeout"] == m.FIRST_TIMEOUT_SECONDS
     assert call["messages"][0] == {"role": "system", "content": m.SYSTEM_PROMPT}
     assert call["messages"][1] == {"role": "user", "content": "What is 2+2?"}

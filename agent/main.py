@@ -69,6 +69,7 @@ def _probe(client, model, extra_body=None):
         model=model,
         messages=[{"role": "user", "content": PROBE_PROMPT}],
         max_tokens=PROBE_MAX_TOKENS,
+        temperature=0.0,
         timeout=PROBE_TIMEOUT_SECONDS,
         **kwargs,
     )
@@ -241,6 +242,7 @@ def answer_task(client, model, task, deadline, extra_body=None, local=None, rout
                     {"role": "user", "content": build_user_message(task["prompt"], result["category"])},
                 ],
                 max_tokens=max_tokens,
+                temperature=0.0,
                 timeout=timeout,
                 **({"extra_body": effective_extra} if effective_extra else {}),
             )
