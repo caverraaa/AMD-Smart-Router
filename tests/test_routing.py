@@ -1,7 +1,6 @@
 import json
 import time
 
-import agent.main as m
 from agent.main import answer_task, load_routing_table
 
 from tests.test_answer_task import FakeClient, fake_response

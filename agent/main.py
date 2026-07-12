@@ -210,7 +210,7 @@ def answer_task(client, model, task, deadline, extra_body=None, local=None, rout
               "prompt_tokens": 0, "completion_tokens": 0, "error": None,
               "category": task.get("category", "unknown"), "lane": "fireworks"}
     routing = routing or {}
-    if local is not None and result["category"] == "unknown":
+    if local is not None and result["category"] == "unknown" and time.monotonic() < deadline:
         try:
             guessed = local.classify(task["prompt"], tuple(routing))
             if guessed:
