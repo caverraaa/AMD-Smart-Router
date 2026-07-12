@@ -10,6 +10,21 @@ import os
 import threading
 import time
 
+try:
+    from agent.local_validators import (
+        build_ner_prompt,
+        is_ner_request,
+        repair_shortened_date_spans,
+        repair_trailing_descriptors,
+        supports_local_ner_request,
+        validate_ner_answer,
+    )
+except ImportError:  # executed with /app/agent on sys.path
+    from local_validators import (build_ner_prompt, is_ner_request,
+                                  repair_shortened_date_spans,
+                                  repair_trailing_descriptors,
+                                  supports_local_ner_request, validate_ner_answer)
+
 DEFAULT_MODEL_PATH = os.environ.get(
     "LOCAL_MODEL_PATH", "/app/models/gemma-2-2b-it-Q4_K_M.gguf")
 LOCAL_MAX_TOKENS = 160
@@ -29,7 +44,7 @@ class LocalModel:
         self._llm = llama_factory(model_path=path, n_ctx=2048,
                                   n_threads=n_threads, verbose=False)
 
-    def generate(self, user_text, max_tokens=LOCAL_MAX_TOKENS, deadline=None):
+    def _generate_once(self, user_text, max_tokens, deadline=None):
         if deadline is not None:
             budget = deadline - time.monotonic() - 5.0  # 5s reserve for the answer write
             if budget <= 0:
@@ -49,10 +64,47 @@ class LocalModel:
                     max_tokens=max_tokens, temperature=0.0)
         return (out["choices"][0]["message"]["content"] or "").strip()
 
+    def answer(self, user_text, category=None, max_tokens=LOCAL_MAX_TOKENS,
+               deadline=None):
+        """Category-aware local answer with fail-closed validation.
+
+        ``generate`` auto-detects NER for compatibility with the current
+        main.py. A future integration may pass ``category`` explicitly.
+        Invalid NER gets one local repair attempt; a second invalid answer
+        becomes ``""`` so the existing caller falls back to Fireworks.
+        """
+        if category == "ner" or (category is None and is_ner_request(user_text)):
+            if not supports_local_ner_request(user_text):
+                return ""
+            # Keep the already judge-tested merged NER prompt and add only a
+            # narrow format/exact-span suffix. A full replacement prompt made
+            # Gemma-2B confuse ORG and LOCATION on passing golden examples.
+            first = self._generate_once(
+                build_ner_prompt(user_text), max_tokens, deadline)
+            first = repair_trailing_descriptors(first)
+            first = repair_shortened_date_spans(user_text, first)
+            checked = validate_ner_answer(user_text, first)
+            if checked.valid:
+                return checked.answer
+            if deadline is not None and time.monotonic() + 5.0 >= deadline:
+                return ""
+            repair_prompt = build_ner_prompt(
+                user_text, previous_answer=first, issues=checked.issues)
+            repaired = self._generate_once(repair_prompt, max_tokens, deadline)
+            repaired = repair_trailing_descriptors(repaired)
+            repaired = repair_shortened_date_spans(user_text, repaired)
+            checked = validate_ner_answer(user_text, repaired)
+            return checked.answer if checked.valid else ""
+        return self._generate_once(user_text, max_tokens, deadline)
+
+    def generate(self, user_text, max_tokens=LOCAL_MAX_TOKENS, deadline=None):
+        return self.answer(user_text, max_tokens=max_tokens, deadline=deadline)
+
     def classify(self, prompt, categories, deadline=None):
         instruction = ("Classify this task. Answer with exactly one word from: "
                        + ", ".join(categories) + ".\nTask: " + prompt[:500]
                        + "\nCategory:")
-        word = self.generate(instruction, max_tokens=CLASSIFY_MAX_TOKENS, deadline=deadline)
+        word = self._generate_once(
+            instruction, max_tokens=CLASSIFY_MAX_TOKENS, deadline=deadline)
         word = word.lower().strip(" .:\n\"'")
         return word if word in categories else None

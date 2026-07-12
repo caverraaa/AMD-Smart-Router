@@ -30,7 +30,7 @@ def test_collector_logs_per_task_line(monkeypatch, tmp_path, capsys):
     setup_env(monkeypatch, tmp_path, [
         {"task_id": "t1", "prompt": "Classify the sentiment of this review: great."},
     ])
-    patch_client(monkeypatch, [fake_response("OK"), fake_response("Positive")])
+    patch_client(monkeypatch, [fake_response("Positive")])
     assert m.main() == 0
     err = capsys.readouterr().err
     line = next(l for l in err.splitlines() if l.startswith("task=t1"))

@@ -1,6 +1,8 @@
 import time
 from types import SimpleNamespace
 
+import pytest
+
 import agent.main as m
 from agent.main import answer_task
 
@@ -43,7 +45,7 @@ def test_success(monkeypatch):
                  "retry_prompt_tokens": 0, "retry_completion_tokens": 0}
     call = client.chat.completions.calls[0]
     assert call["model"] == "m-2b"
-    assert call["max_tokens"] == m.MAX_TOKENS
+    assert call["max_tokens"] == m.CATEGORY_TOKEN_CAPS["unknown"][0]
     assert call["temperature"] == 0.0
     assert call["timeout"] == m.FIRST_TIMEOUT_SECONDS
     assert call["messages"][0] == {"role": "system", "content": m.SYSTEM_PROMPT}
@@ -52,7 +54,7 @@ def test_success(monkeypatch):
 
 def test_retry_succeeds_with_longer_timeout(monkeypatch):
     monkeypatch.setattr(m, "RETRY_BACKOFF_SECONDS", 0)
-    client = FakeClient([RuntimeError("boom"), fake_response("4")])
+    client = FakeClient([TimeoutError("boom"), fake_response("4")])
     r = answer_task(client, "m-2b", TASK, FUTURE)
     assert r["answer"] == "4"
     assert r["error"] is None
@@ -60,16 +62,38 @@ def test_retry_succeeds_with_longer_timeout(monkeypatch):
     assert r["retry_prompt_tokens"] == 10
     assert r["retry_completion_tokens"] == 5
     assert client.chat.completions.calls[1]["timeout"] == m.RETRY_TIMEOUT_SECONDS
+    assert client.chat.completions.calls[1]["max_tokens"] == m.CATEGORY_TOKEN_CAPS["unknown"][1]
 
 
 def test_both_attempts_fail_returns_empty(monkeypatch):
     monkeypatch.setattr(m, "RETRY_BACKOFF_SECONDS", 0)
-    client = FakeClient([RuntimeError("a"), RuntimeError("b")])
+    client = FakeClient([TimeoutError("a"), TimeoutError("b")])
     r = answer_task(client, "m-2b", TASK, FUTURE)
     assert r["answer"] == ""
-    assert "RuntimeError" in r["error"]
+    assert "TimeoutError" in r["error"]
     assert r["fireworks_calls"] == 2 and r["retry_calls"] == 1
     assert len(client.chat.completions.calls) == 2
+
+
+def test_non_retryable_client_error_stops_after_one_call(monkeypatch):
+    class BadRequestError(Exception):
+        status_code = 400
+
+    monkeypatch.setattr(m, "RETRY_BACKOFF_SECONDS", 0)
+    client = FakeClient([BadRequestError("invalid request")])
+    r = answer_task(client, "m-2b", TASK, FUTURE)
+    assert r["answer"] == ""
+    assert "BadRequestError" in r["error"]
+    assert r["fireworks_calls"] == 1 and r["retry_calls"] == 0
+    assert len(client.chat.completions.calls) == 1
+
+
+@pytest.mark.parametrize("category,caps", sorted(m.CATEGORY_TOKEN_CAPS.items()))
+def test_first_attempt_uses_category_cap(category, caps):
+    client = FakeClient([fake_response("ok")])
+    task = {"task_id": "t1", "prompt": "do it", "category": category}
+    answer_task(client, "m-2b", task, FUTURE)
+    assert client.chat.completions.calls[0]["max_tokens"] == caps[0]
 
 
 def test_past_deadline_makes_no_api_call():

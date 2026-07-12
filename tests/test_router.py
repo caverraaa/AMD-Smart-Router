@@ -44,8 +44,20 @@ def test_build_user_message_unknown_passthrough():
     assert build_user_message("mystery task", "unknown") == "mystery task"
 
 
-def test_sentiment_constraint_demands_justification():
-    assert "justification" in CONSTRAINTS["sentiment"].lower()
+def test_sentiment_constraint_preserves_label_reason_and_mixed_rule():
+    text = CONSTRAINTS["sentiment"].lower()
+    assert all(word in text for word in ("positive", "negative", "neutral", "mixed", "reason"))
+
+
+def test_compact_constraints_preserve_completion_requirements():
+    assert "relative dates" in CONSTRAINTS["ner"].lower()
+    assert "format and length exactly" in CONSTRAINTS["summarisation"].lower()
+    assert "working" in CONSTRAINTS["math"].lower()
+    assert "corrected code" in CONSTRAINTS["code_debug"].lower()
+    assert CONSTRAINTS["code_gen"] == "Output only the code."
+    assert "every constraint" in CONSTRAINTS["logic"].lower()
+    assert "two sentences" in CONSTRAINTS["factual"].lower()
+    assert sum(map(len, CONSTRAINTS.values())) <= 420
 
 
 def test_explain_sentiment_is_not_classification():

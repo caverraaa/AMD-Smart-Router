@@ -44,6 +44,62 @@ def test_generate_custom_cap():
     assert fake.calls[0]["max_tokens"] == 64
 
 
+def test_ner_valid_first_answer_is_canonicalized_without_repair():
+    lm, fake = make([
+        "Maria Sanchez PERSON\nFireworks AI ORG\nBerlin LOCATION\nlast March DATE"
+    ])
+    prompt = ("Extract all named entities and their types from: Maria Sanchez joined "
+              "Fireworks AI in Berlin last March.")
+    answer = lm.generate(prompt)
+
+    assert answer.endswith("last March — DATE")
+    assert len(fake.calls) == 1
+    assert fake.calls[0]["messages"][0]["content"].startswith(prompt)
+    assert "Use exactly one pair per line" in fake.calls[0]["messages"][0]["content"]
+
+
+def test_ner_shortened_date_is_repaired_deterministically():
+    lm, fake = make([
+        "Maria Sanchez — PERSON\nFireworks AI — ORG\nBerlin — LOCATION\nMarch — DATE",
+    ])
+    prompt = ("Extract all named entities and their types from: Maria Sanchez joined "
+              "Fireworks AI in Berlin last March.")
+    answer = lm.answer(prompt, category="ner")
+
+    assert answer.endswith("last March — DATE")
+    assert len(fake.calls) == 1
+
+
+def test_ner_invalid_structure_gets_one_model_repair_attempt():
+    lm, fake = make([
+        "Here are the entities:\nMaria Sanchez — PERSON",
+        "Maria Sanchez — PERSON\nFireworks AI — ORG\nBerlin — LOCATION\nlast March — DATE",
+    ])
+    prompt = ("Extract all named entities and their types from: Maria Sanchez joined "
+              "Fireworks AI in Berlin last March.")
+    answer = lm.answer(prompt, category="ner")
+
+    assert answer.endswith("last March — DATE")
+    assert len(fake.calls) == 2
+    repair = fake.calls[1]["messages"][0]["content"]
+    assert "Repair the NER answer" in repair
+    assert "use one entity and type per line" in repair
+
+
+def test_ner_second_invalid_answer_fails_closed_for_cloud_fallback():
+    lm, fake = make(["London — LOCATION", "London — LOCATION"])
+    prompt = "Extract all named entities and their types from: Berlin last March."
+    assert lm.generate(prompt) == ""
+    assert len(fake.calls) == 2
+
+
+def test_unsupported_ner_format_fails_closed_without_local_generation():
+    lm, fake = make([])
+    prompt = "Extract all named entities as JSON from: Maria joined Acme."
+    assert lm.answer(prompt, category="ner") == ""
+    assert fake.calls == []
+
+
 def test_classify_valid_word():
     lm, _ = make(["sentiment"])
     assert lm.classify("is this good or bad?", ("sentiment", "ner")) == "sentiment"

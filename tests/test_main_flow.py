@@ -26,7 +26,9 @@ def patch_client(monkeypatch, outcomes):
         created["base_url"] = base_url
         created["api_key"] = api_key
         created["max_retries"] = max_retries
-        return FakeClient(outcomes)
+        client = FakeClient(outcomes)
+        created["client"] = client
+        return client
 
     monkeypatch.setattr(m, "OpenAI", fake_openai)
     return created
@@ -39,8 +41,7 @@ def test_happy_path(monkeypatch, tmp_path, capsys):
         {"task_id": "t1", "prompt": "a"},
         {"task_id": "t2", "prompt": "b"},
     ])
-    # first outcome feeds the startup model probe
-    created = patch_client(monkeypatch, [fake_response("OK"), fake_response("A"), fake_response("B")])
+    created = patch_client(monkeypatch, [fake_response("A"), fake_response("B")])
     assert m.main() == 0
     results = {r["task_id"]: r["answer"] for r in json.loads(out.read_text())}
     assert results == {"t1": "A", "t2": "B"}
@@ -48,10 +49,11 @@ def test_happy_path(monkeypatch, tmp_path, capsys):
     assert created["api_key"] == "fk-test"
     assert created["max_retries"] == 0
     err = capsys.readouterr().err
-    assert "stats:" in err and "total_tokens=45" in err
-    assert "fireworks_calls=3" in err
-    assert "probe_prompt_tokens=10" in err
-    assert "probe_completion_tokens=5" in err
+    assert "stats:" in err and "total_tokens=30" in err
+    assert "fireworks_calls=2" in err
+    assert "probe_calls=0" in err
+    assert "probe_prompt_tokens=0" in err
+    assert "probe_completion_tokens=0" in err
     assert "task_prompt_tokens=20" in err
     assert "task_completion_tokens=10" in err
 
@@ -63,8 +65,8 @@ def test_one_task_failure_does_not_kill_run(monkeypatch, tmp_path):
         {"task_id": "t1", "prompt": "a"},
         {"task_id": "t2", "prompt": "b"},
     ])
-    # probe OK, then t1 fails twice, then t2 succeeds
-    patch_client(monkeypatch, [fake_response("OK"), RuntimeError("x"), RuntimeError("y"), fake_response("B")])
+    # t1 fails twice with retryable timeouts, then t2 succeeds
+    patch_client(monkeypatch, [TimeoutError("x"), TimeoutError("y"), fake_response("B")])
     assert m.main() == 0
     results = {r["task_id"]: r["answer"] for r in json.loads(out.read_text())}
     assert results == {"t1": "", "t2": "B"}
@@ -75,7 +77,7 @@ def test_unanswerable_task_still_in_output(monkeypatch, tmp_path):
         {"task_id": "t1"},
         {"task_id": "t2", "prompt": "b"},
     ])
-    patch_client(monkeypatch, [fake_response("OK"), fake_response("B")])
+    patch_client(monkeypatch, [fake_response("B")])
     assert m.main() == 0
     results = json.loads(out.read_text())
     assert results == [{"task_id": "t1", "answer": ""}, {"task_id": "t2", "answer": "B"}]
@@ -122,11 +124,13 @@ def test_local_lane_wired_through_main(monkeypatch, tmp_path, capsys):
     out = setup_env(monkeypatch, tmp_path, [
         {"task_id": "t1", "prompt": "Classify the sentiment of this review: great!"},
     ])
-    # only the startup probe call is provided — any task-level Fireworks call
-    # (i.e. the local lane not being used) would exhaust outcomes and fail.
-    patch_client(monkeypatch, [fake_response("OK")])
+    # No outcomes are provided: selection and a successful local task must
+    # make zero Fireworks calls.
+    created = patch_client(monkeypatch, [])
     assert m.main() == 0
     results = {r["task_id"]: r["answer"] for r in json.loads(out.read_text())}
     assert results == {"t1": "local answer"}
     err = capsys.readouterr().err
     assert "local model loaded" in err
+    assert created["client"].chat.completions.calls == []
+    assert "probe_calls=0" in err and "fireworks_calls=0" in err

@@ -19,19 +19,32 @@ except ImportError:  # executed as a script (python /app/agent/main.py)
     from agent.router import build_user_message, categorize
 
 SYSTEM_PROMPT = "Answer in English. Be accurate and brief."
-MAX_TOKENS = 2048  # reasoning models spend hidden tokens before the answer; 1024 truncated them
-RETRY_MAX_TOKENS = 4096  # retry after an empty/truncated response gets more headroom
+# Caps include hidden reasoning tokens. Short-answer categories get tight
+# budgets; code and unknown tasks retain room for complete implementations.
+CATEGORY_TOKEN_CAPS = {
+    "sentiment": (512, 2048),
+    "ner": (512, 2048),
+    "factual": (512, 2048),
+    "summarisation": (768, 2048),
+    "math": (768, 2048),
+    "logic": (2048, 4096),
+    "code_debug": (2048, 4096),
+    "code_gen": (2048, 4096),
+    "unknown": (2048, 4096),
+}
+# Backwards-compatible aliases: unknown is the safe default category.
+MAX_TOKENS, RETRY_MAX_TOKENS = CATEGORY_TOKEN_CAPS["unknown"]
 FIRST_TIMEOUT_SECONDS = 20.0
 RETRY_TIMEOUT_SECONDS = 25.0
 RETRY_BACKOFF_SECONDS = 2.0
 SOFT_BUDGET_SECONDS = 540.0  # 9 min of the 10-min limit; the rest is startup/write/exit margin
 MAX_WORKERS = 4
-PROBE_TIMEOUT_SECONDS = 10.0
-PROBE_MAX_TOKENS = 200  # headroom so hidden reasoning shows up in the overhead measurement
-LOW_OVERHEAD_TOKENS = 30  # a model this lean is good enough; stop spending probe tokens
-KNOB_TRIGGER_TOKENS = 5  # any hidden-reasoning signal above estimate noise should attempt the cheaper knob
-PROBE_PROMPT = "What is 2+2? Answer with just the number."
 FULL_EFFORT_CATEGORIES = ("logic",)  # low reasoning effort measurably breaks deduction puzzles
+# Offline-validated preference order. Selection always intersects this policy
+# with ALLOWED_MODELS. gpt-oss-120b + low effort passed practice 8/8.
+OFFLINE_MODEL_POLICY = (
+    ("accounts/fireworks/models/gpt-oss-120b", {"reasoning_effort": "low"}),
+)
 # Worst-case lock wait + generation reserve for the local lane. Mirrors
 # agent.local_model.LOCAL_WORST_SECONDS — that copy bounds LocalModel's own
 # internal budget; this copy gates whether the lane is attempted at all.
@@ -61,71 +74,47 @@ def _empty_usage_stats():
     return {"calls": 0, "prompt_tokens": 0, "completion_tokens": 0}
 
 
-def _record_usage(stats, response):
-    usage = getattr(response, "usage", None)
-    if usage is not None:
-        stats["prompt_tokens"] += usage.prompt_tokens or 0
-        stats["completion_tokens"] += usage.completion_tokens or 0
-
-
-def _probe(client, model, extra_body=None, stats=None):
-    """One tiny call; returns billed-minus-visible completion-token overhead.
-
-    Reasoning models bill hidden thinking as completion tokens — on the
-    scored eval the overhead was ~2/3 of the whole bill, so it outranks
-    parameter count when choosing the cheapest usable model.
-    """
-    stats = stats if stats is not None else _empty_usage_stats()
-    kwargs = {"extra_body": extra_body} if extra_body else {}
-    stats["calls"] += 1
-    resp = client.chat.completions.create(
-        model=model,
-        messages=[{"role": "user", "content": PROBE_PROMPT}],
-        max_tokens=PROBE_MAX_TOKENS,
-        temperature=0.0,
-        timeout=PROBE_TIMEOUT_SECONDS,
-        **kwargs,
-    )
-    _record_usage(stats, resp)
-    content = (resp.choices[0].message.content or "").strip()
-    usage = getattr(resp, "usage", None)
-    billed = (usage.completion_tokens or 0) if usage else 0
-    return billed - max(1, len(content) // 4)
-
-
 def pick_working_model(client, allowed_models, probe_stats=None):
-    """Returns (model_id, extra_body|None): cheapest usable model by measured
-    token overhead; never a model that can't actually answer a chat call."""
-    probe_stats = probe_stats if probe_stats is not None else _empty_usage_stats()
-    ranked = sorted(allowed_models, key=parse_model_size)  # stable: ties keep list order
+    """Select deterministically without making a paid API call.
+
+    ``client`` and ``probe_stats`` remain for Phase 2 call-site compatibility.
+    The result is always allowlisted, and probe telemetry remains zero.
+    """
+    del client, probe_stats
     override = os.environ.get("CHEAP_MODEL")
     if override in allowed_models:
-        ranked = [override] + [x for x in ranked if x != override]
-    candidates = []  # (overhead, rank_index, model, extra_body)
-    for i, model in enumerate(ranked):
-        try:
-            overhead = _probe(client, model, stats=probe_stats)
-        except Exception as exc:  # noqa: BLE001 — failed probe just means next model
-            log(f"WARN: model {model} failed probe: {type(exc).__name__}: {exc}")
-            continue
-        extra = None
-        if overhead > KNOB_TRIGGER_TOKENS:
-            try:  # reasoning model: does it accept a low-effort knob?
-                low = _probe(client, model, extra_body={"reasoning_effort": "low"},
-                             stats=probe_stats)
-                if low < overhead:
-                    overhead, extra = low, {"reasoning_effort": "low"}
-            except Exception:  # noqa: BLE001 — knob rejected; keep default behavior
-                pass
-        log(f"probe: {model} overhead={overhead} extra={extra}")
-        candidates.append((overhead, i, model, extra))
-        if overhead <= LOW_OVERHEAD_TOKENS:
-            break  # lean enough; stop spending probe tokens
-    if not candidates:
-        log("WARN: no model passed the probe; using cheapest by name anyway")
-        return ranked[0], None
-    _, _, model, extra = min(candidates)
-    return model, extra
+        selected = override
+    else:
+        selected = next(
+            (model for model, _ in OFFLINE_MODEL_POLICY if model in allowed_models),
+            None,
+        ) or pick_cheapest_model(allowed_models)
+    extra = next(
+        (dict(body) for model, body in OFFLINE_MODEL_POLICY if model == selected),
+        None,
+    )
+    return selected, extra
+
+
+def token_caps_for(category):
+    """Return ``(first, retry)`` caps; unrecognized categories use defaults."""
+    return CATEGORY_TOKEN_CAPS.get(category, CATEGORY_TOKEN_CAPS["unknown"])
+
+
+def _is_retryable_exception(exc):
+    """Conservative retry classification for OpenAI-compatible failures."""
+    status = getattr(exc, "status_code", None)
+    if status is None:
+        status = getattr(getattr(exc, "response", None), "status_code", None)
+    if status is not None:
+        return status in (408, 409, 425, 429) or status >= 500
+    if isinstance(exc, (TimeoutError, ConnectionError)):
+        return True
+    error_text = f"{type(exc).__name__} {exc}".lower()
+    return any(marker in error_text for marker in (
+        "timeout", "connection", "rate limit", "ratelimit", "temporar",
+        "internal server", "service unavailable",
+    ))
 
 
 def load_config():
@@ -237,9 +226,15 @@ def answer_task(client, model, task, deadline, extra_body=None, local=None, rout
     if (local is not None and routing.get(result["category"]) == "local"
             and time.monotonic() + LOCAL_WORST_SECONDS < deadline):
         try:
-            text = local.generate(
-                "Answer in English. " + build_user_message(task["prompt"], result["category"]),
-                deadline=deadline)
+            local_prompt = (
+                "Answer in English. "
+                + build_user_message(task["prompt"], result["category"])
+            )
+            if hasattr(local, "answer"):
+                text = local.answer(
+                    local_prompt, category=result["category"], deadline=deadline)
+            else:  # compatibility with minimal test/dev local adapters
+                text = local.generate(local_prompt, deadline=deadline)
             if text:
                 result["answer"] = text
                 result["lane"] = "local"
@@ -247,7 +242,8 @@ def answer_task(client, model, task, deadline, extra_body=None, local=None, rout
         except Exception as exc:  # noqa: BLE001 — local failure falls back to cloud
             log(f"WARN: local lane failed for {task['task_id']}: {type(exc).__name__}: {exc}")
     effective_extra = None if result["category"] in FULL_EFFORT_CATEGORIES else extra_body
-    attempts = ((FIRST_TIMEOUT_SECONDS, MAX_TOKENS), (RETRY_TIMEOUT_SECONDS, RETRY_MAX_TOKENS))
+    first_cap, retry_cap = token_caps_for(result["category"])
+    attempts = ((FIRST_TIMEOUT_SECONDS, first_cap), (RETRY_TIMEOUT_SECONDS, retry_cap))
     for attempt, (timeout, max_tokens) in enumerate(attempts):
         if time.monotonic() >= deadline:
             result["error"] = "soft budget exhausted before dispatch"
@@ -276,11 +272,15 @@ def answer_task(client, model, task, deadline, extra_body=None, local=None, rout
                 if attempt:
                     result["retry_prompt_tokens"] += attempt_prompt_tokens
                     result["retry_completion_tokens"] += attempt_completion_tokens
-            content = (resp.choices[0].message.content or "").strip()
-            if not content:
+            choice = resp.choices[0]
+            content = (choice.message.content or "").strip()
+            finish = getattr(choice, "finish_reason", None)
+            if finish == "length":
+                # A visible prefix is still incomplete (especially for code).
+                result["error"] = "truncated content (finish_reason=length)"
+            elif not content:
                 # reasoning models can burn the whole cap on hidden reasoning
                 # and return empty content; retry with more headroom
-                finish = getattr(resp.choices[0], "finish_reason", None)
                 result["error"] = f"empty content (finish_reason={finish})"
             else:
                 result["answer"] = content
@@ -288,6 +288,8 @@ def answer_task(client, model, task, deadline, extra_body=None, local=None, rout
                 return result
         except Exception as exc:  # noqa: BLE001 — one task must never kill the run
             result["error"] = f"{type(exc).__name__}: {exc}"
+            if not _is_retryable_exception(exc):
+                return result
         if attempt == 0:
             time.sleep(RETRY_BACKOFF_SECONDS)
     return result

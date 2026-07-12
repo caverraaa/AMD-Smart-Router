@@ -1,6 +1,6 @@
 {
 "sentiment": "local",
-"ner": "fireworks",
+"ner": "local",
 "factual": "fireworks",
 "logic": "fireworks",
 "math": "fireworks",

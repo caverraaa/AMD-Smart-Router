@@ -1,5 +1,4 @@
-"""Tests for the 0.0%-accuracy hardening: tolerant input schema, model
-probing with fallback, and empty-content (reasoning exhaustion) retry."""
+"""Tests for tolerant input, offline model selection, and bounded retries."""
 import json
 import time
 
@@ -64,93 +63,50 @@ def test_duplicate_task_ids_keep_first(tmp_path):
     assert answerable == [{"task_id": "t1", "prompt": "first"}]
 
 
-# --- Fix 2: model probing with fallback (reasoning-tax-aware) ----------------
+# --- Fix 2: deterministic offline model policy -------------------------------
 
-def probe_response(text, completion_tokens):
-    return fake_response(text, prompt_tokens=15, completion_tokens=completion_tokens)
+VALIDATED_MODEL = "accounts/fireworks/models/gpt-oss-120b"
 
 
-def test_probe_picks_cheapest_when_lean(monkeypatch):
+def test_offline_policy_prefers_validated_model_without_api_calls(monkeypatch):
     monkeypatch.delenv("CHEAP_MODEL", raising=False)
-    client = FakeClient([probe_response("4", 5)])  # overhead 4 <= 30 -> stop
+    client = FakeClient([])
+    allowed = ["accounts/x/small-2b", VALIDATED_MODEL]
+    assert pick_working_model(client, allowed) == (
+        VALIDATED_MODEL, {"reasoning_effort": "low"})
+    assert client.chat.completions.calls == []
+
+
+def test_offline_policy_unknown_catalog_falls_back_to_smallest(monkeypatch):
+    monkeypatch.delenv("CHEAP_MODEL", raising=False)
+    client = FakeClient([])
     allowed = ["accounts/x/big-70b", "accounts/x/small-2b"]
     assert pick_working_model(client, allowed) == ("accounts/x/small-2b", None)
-    assert len(client.chat.completions.calls) == 1
+    assert client.chat.completions.calls == []
 
 
-def test_probe_falls_through_to_next_model(monkeypatch):
-    monkeypatch.delenv("CHEAP_MODEL", raising=False)
-    client = FakeClient([RuntimeError("not a chat model"), probe_response("4", 5)])
-    allowed = ["accounts/x/image-model", "accounts/x/chat-model"]
-    assert pick_working_model(client, allowed) == ("accounts/x/chat-model", None)
-
-
-def test_all_probes_fail_falls_back_to_cheapest(monkeypatch):
-    monkeypatch.delenv("CHEAP_MODEL", raising=False)
-    client = FakeClient([RuntimeError("a"), RuntimeError("b"), RuntimeError("c"), RuntimeError("d")])
-    allowed = ["accounts/x/big-70b", "accounts/x/small-2b"]
-    # 2 default probes + 0 low-effort probes (they only run after a HIGH overhead success)
-    assert pick_working_model(client, allowed) == ("accounts/x/small-2b", None)
-    assert len(client.chat.completions.calls) == 2
-
-
-def test_probe_respects_cheap_model_override(monkeypatch):
+def test_offline_policy_respects_allowlisted_override(monkeypatch):
     monkeypatch.setenv("CHEAP_MODEL", "accounts/x/big-70b")
-    client = FakeClient([probe_response("4", 5)])
-    allowed = ["accounts/x/small-2b", "accounts/x/big-70b"]
-    model, extra = pick_working_model(client, allowed)
-    assert model == "accounts/x/big-70b"
-    assert client.chat.completions.calls[0]["model"] == "accounts/x/big-70b"
+    client = FakeClient([])
+    allowed = [VALIDATED_MODEL, "accounts/x/big-70b"]
+    assert pick_working_model(client, allowed) == ("accounts/x/big-70b", None)
+    assert client.chat.completions.calls == []
 
 
-def test_reasoning_model_gets_low_effort_knob(monkeypatch):
-    monkeypatch.delenv("CHEAP_MODEL", raising=False)
-    # default probe: 150 billed for "4" (overhead 149) -> tries reasoning_effort low
-    # low-effort probe: 20 billed (overhead 19 <= 30) -> selected with the knob
-    client = FakeClient([probe_response("4", 150), probe_response("4", 20)])
-    model, extra = pick_working_model(client, ["accounts/x/reasoner-8b"])
-    assert model == "accounts/x/reasoner-8b"
-    assert extra == {"reasoning_effort": "low"}
-    assert client.chat.completions.calls[1]["extra_body"] == {"reasoning_effort": "low"}
+def test_offline_policy_ignores_non_allowlisted_override(monkeypatch):
+    monkeypatch.setenv("CHEAP_MODEL", "accounts/evil/not-allowed")
+    client = FakeClient([])
+    allowed = ["accounts/x/small-2b", VALIDATED_MODEL]
+    model, _ = pick_working_model(client, allowed)
+    assert model == VALIDATED_MODEL
+    assert model in allowed
 
 
-def test_probe_usage_includes_every_successful_probe(monkeypatch):
+def test_offline_policy_leaves_probe_stats_zero(monkeypatch):
     monkeypatch.delenv("CHEAP_MODEL", raising=False)
     stats = m._empty_usage_stats()
-    client = FakeClient([probe_response("4", 150), probe_response("4", 20)])
-    pick_working_model(client, ["accounts/x/reasoner-8b"], probe_stats=stats)
-    assert stats == {"calls": 2, "prompt_tokens": 30, "completion_tokens": 170}
-
-
-def test_failed_probe_counts_call_without_inventing_usage(monkeypatch):
-    monkeypatch.delenv("CHEAP_MODEL", raising=False)
-    stats = m._empty_usage_stats()
-    client = FakeClient([RuntimeError("bad"), probe_response("4", 5)])
-    pick_working_model(client, ["accounts/x/a", "accounts/x/b"], probe_stats=stats)
-    assert stats == {"calls": 2, "prompt_tokens": 15, "completion_tokens": 5}
-
-
-def test_low_effort_rejected_keeps_default(monkeypatch):
-    monkeypatch.delenv("CHEAP_MODEL", raising=False)
-    # model A: high overhead, low-effort knob rejected -> stays candidate at 149
-    # model B: lean enough to skip the knob (overhead 3 <= 5) -> wins
-    client = FakeClient([
-        probe_response("4", 150), RuntimeError("unknown param reasoning_effort"),
-        probe_response("4", 4),
-    ])
-    model, extra = pick_working_model(client, ["accounts/x/reasoner-2b", "accounts/x/plain-8b"])
-    assert model == "accounts/x/plain-8b"
-    assert extra is None
-
-
-def test_moderate_overhead_still_gets_knob_attempt(monkeypatch):
-    monkeypatch.delenv("CHEAP_MODEL", raising=False)
-    # live bug: default probe measured overhead 30 (== old threshold) and the
-    # knob was skipped; any overhead above estimate noise must try the knob
-    client = FakeClient([probe_response("4", 31), probe_response("4", 16)])
-    model, extra = pick_working_model(client, ["accounts/x/reasoner-120b"])
-    assert extra == {"reasoning_effort": "low"}
-    assert len(client.chat.completions.calls) == 2
+    pick_working_model(FakeClient([]), [VALIDATED_MODEL], probe_stats=stats)
+    assert stats == {"calls": 0, "prompt_tokens": 0, "completion_tokens": 0}
 
 
 def test_answer_task_passes_extra_body():
@@ -185,8 +141,8 @@ def test_empty_content_triggers_retry_with_bigger_cap(monkeypatch):
     assert r["answer"] == "42"
     assert r["error"] is None
     calls = client.chat.completions.calls
-    assert calls[0]["max_tokens"] == m.MAX_TOKENS
-    assert calls[1]["max_tokens"] == m.RETRY_MAX_TOKENS
+    assert calls[0]["max_tokens"] == m.CATEGORY_TOKEN_CAPS["unknown"][0]
+    assert calls[1]["max_tokens"] == m.CATEGORY_TOKEN_CAPS["unknown"][1]
     # tokens from BOTH attempts count (the proxy billed both)
     assert r["completion_tokens"] == 2048 + 900
     assert r["retry_calls"] == 1
@@ -199,5 +155,24 @@ def test_empty_content_twice_returns_empty_with_error(monkeypatch):
     client = FakeClient([empty_length_response(), empty_length_response()])
     r = answer_task(client, "m-x", TASK, FUTURE)
     assert r["answer"] == ""
-    assert "empty content" in r["error"]
+    assert "truncated content" in r["error"]
     assert len(client.chat.completions.calls) == 2
+
+
+def test_visible_truncation_is_retried_not_returned(monkeypatch):
+    monkeypatch.setattr(m, "RETRY_BACKOFF_SECONDS", 0)
+    truncated = fake_response("def unfinished(", prompt_tokens=20, completion_tokens=1024)
+    truncated.choices[0].finish_reason = "length"
+    client = FakeClient([truncated, fake_response("def complete():\n    return 1")])
+    task = {"task_id": "t1", "prompt": "write a function", "category": "code_gen"}
+    r = answer_task(client, "m-x", task, FUTURE)
+    assert r["answer"] == "def complete():\n    return 1"
+    assert r["retry_calls"] == 1
+    assert client.chat.completions.calls[0]["max_tokens"] == 2048
+    assert client.chat.completions.calls[1]["max_tokens"] == 4096
+
+
+def test_category_caps_are_positive_and_retries_have_more_room():
+    assert "unknown" in m.CATEGORY_TOKEN_CAPS
+    for first, retry in m.CATEGORY_TOKEN_CAPS.values():
+        assert 0 < first < retry <= 4096
