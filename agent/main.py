@@ -194,11 +194,39 @@ def write_snapshot(task_ids, answers, path):
     os.replace(tmp, path)
 
 
-def answer_task(client, model, task, deadline, extra_body=None):
+def load_routing_table(path):
+    """category -> "local"|"fireworks". Missing/invalid file means all-cloud."""
+    try:
+        with open(path, encoding="utf-8") as f:
+            raw = json.load(f)
+        return {k: v for k, v in raw.items() if v in ("local", "fireworks")}
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+def answer_task(client, model, task, deadline, extra_body=None, local=None, routing=None):
     """One Fireworks call with one retry. Never raises; failures return answer ''."""
     result = {"task_id": task["task_id"], "answer": "",
               "prompt_tokens": 0, "completion_tokens": 0, "error": None,
               "category": task.get("category", "unknown"), "lane": "fireworks"}
+    routing = routing or {}
+    if local is not None and result["category"] == "unknown":
+        try:
+            guessed = local.classify(task["prompt"], tuple(routing))
+            if guessed:
+                result["category"] = guessed
+        except Exception:  # noqa: BLE001 — classification is best-effort only
+            pass
+    if (local is not None and routing.get(result["category"]) == "local"
+            and time.monotonic() < deadline):
+        try:
+            text = local.generate(build_user_message(task["prompt"], result["category"]))
+            if text:
+                result["answer"] = text
+                result["lane"] = "local"
+                return result  # zero Fireworks tokens
+        except Exception as exc:  # noqa: BLE001 — local failure falls back to cloud
+            log(f"WARN: local lane failed for {task['task_id']}: {type(exc).__name__}: {exc}")
     attempts = ((FIRST_TIMEOUT_SECONDS, MAX_TOKENS), (RETRY_TIMEOUT_SECONDS, RETRY_MAX_TOKENS))
     for attempt, (timeout, max_tokens) in enumerate(attempts):
         if time.monotonic() >= deadline:
@@ -260,10 +288,23 @@ def main():
         client = OpenAI(base_url=cfg["base_url"], api_key=cfg["api_key"], max_retries=0)
         model, extra_body = pick_working_model(client, cfg["allowed_models"])
         log(f"model: {model} (from {len(cfg['allowed_models'])} allowed)")
+        routing = load_routing_table(os.environ.get(
+            "ROUTING_TABLE",
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), "routing_table.json")))
+        local = None
+        if any(v == "local" for v in routing.values()):
+            try:
+                from agent.local_model import LocalModel
+                local = LocalModel()
+                log("local model loaded")
+            except Exception as exc:  # noqa: BLE001 — pure-cloud mode is always safe
+                log(f"WARN: local model unavailable ({type(exc).__name__}: {exc}); pure-cloud mode")
+                routing = {}
         with ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
             for t in answerable:
                 t["category"] = categorize(t["prompt"])
-            futures = [pool.submit(answer_task, client, model, t, deadline, extra_body) for t in answerable]
+            futures = [pool.submit(answer_task, client, model, t, deadline,
+                                   extra_body, local, routing) for t in answerable]
             for fut in as_completed(futures):
                 r = fut.result()  # answer_task never raises
                 answers[r["task_id"]] = r["answer"]
