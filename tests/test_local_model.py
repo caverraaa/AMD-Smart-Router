@@ -1,7 +1,7 @@
 import threading
 import time
 
-from agent.local_model import CLASSIFY_MAX_TOKENS, LOCAL_MAX_TOKENS, LocalModel
+from agent.local_model import CLASSIFY_MAX_TOKENS, LOCAL_MAX_TOKENS, LOCAL_WORST_SECONDS, LocalModel
 
 
 class FakeLlama:
@@ -73,3 +73,26 @@ def test_concurrent_calls_serialize():
     for t in threads:
         t.join()
     assert fake.max_active == 1  # the lock never admits two generations at once
+
+
+def test_local_worst_seconds_constant():
+    assert LOCAL_WORST_SECONDS == 30.0
+
+
+def test_generate_returns_empty_when_lock_held_past_deadline():
+    lm, fake = make(["first", "second"])
+
+    t = threading.Thread(target=lm.generate, args=("first",))
+    t.start()
+    result = lm.generate("second", deadline=time.monotonic() + 0.05)
+    t.join()
+
+    assert result == ""
+    assert len(fake.calls) == 1  # only the thread's call reached the llm
+
+
+def test_generate_returns_empty_when_deadline_already_passed():
+    lm, fake = make(["a"])
+    result = lm.generate("p", deadline=time.monotonic() - 1)
+    assert result == ""
+    assert fake.calls == []

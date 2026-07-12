@@ -46,3 +46,36 @@ def test_build_user_message_unknown_passthrough():
 
 def test_sentiment_constraint_demands_justification():
     assert "justification" in CONSTRAINTS["sentiment"].lower()
+
+
+def test_explain_sentiment_is_not_classification():
+    assert categorize("Explain how sentiment analysis works in NLP.") != "sentiment"
+
+
+def test_classify_into_categories_is_not_sentiment():
+    assert categorize(
+        "Classify each customer feedback message into billing, shipping, "
+        "or product categories."
+    ) != "sentiment"
+
+
+def test_classify_tone_is_not_sentiment():
+    assert categorize("Classify the tone of this email as formal or informal.") != "sentiment"
+
+
+def test_write_function_over_locations_is_code_gen():
+    assert categorize(
+        "Write a Python function to extract all locations from a list of address strings."
+    ) == "code_gen"
+
+
+def test_constraints_do_not_leak_golden_strings():
+    import json
+    import pathlib
+
+    golden = json.loads(pathlib.Path("eval/golden_tasks.json").read_text(encoding="utf-8"))
+    blob = " ".join(t["prompt"] + " " + t["expected_intent"] for t in golden).lower()
+    for text in CONSTRAINTS.values():
+        for phrase in ("'yesterday'", "'last week'", "'next month'"):
+            if phrase in text:
+                assert phrase.strip("'") not in blob, f"constraint example {phrase} appears in golden set"

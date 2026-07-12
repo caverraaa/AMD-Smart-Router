@@ -100,3 +100,28 @@ def test_client_construction_failure_still_writes_results(monkeypatch, tmp_path)
     monkeypatch.setattr(m, "OpenAI", exploding_openai)
     assert m.main() == 0
     assert json.loads(out.read_text()) == [{"task_id": "t1", "answer": ""}]
+
+
+def test_local_lane_wired_through_main(monkeypatch, tmp_path, capsys):
+    class StubLocal:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def generate(self, user_text, max_tokens=160, deadline=None):
+            return "local answer"
+
+    monkeypatch.setattr("agent.local_model.LocalModel", StubLocal)
+    routing_path = tmp_path / "routing.json"
+    routing_path.write_text(json.dumps({"sentiment": "local"}), encoding="utf-8")
+    monkeypatch.setenv("ROUTING_TABLE", str(routing_path))
+    out = setup_env(monkeypatch, tmp_path, [
+        {"task_id": "t1", "prompt": "Classify the sentiment of this review: great!"},
+    ])
+    # only the startup probe call is provided — any task-level Fireworks call
+    # (i.e. the local lane not being used) would exhaust outcomes and fail.
+    patch_client(monkeypatch, [fake_response("OK")])
+    assert m.main() == 0
+    results = {r["task_id"]: r["answer"] for r in json.loads(out.read_text())}
+    assert results == {"t1": "local answer"}
+    err = capsys.readouterr().err
+    assert "local model loaded" in err

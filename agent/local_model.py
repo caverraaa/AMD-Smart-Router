@@ -8,11 +8,16 @@ llama-cpp) — the speed spike validates the worst case fits 30 s/response.
 """
 import os
 import threading
+import time
 
 DEFAULT_MODEL_PATH = os.environ.get(
     "LOCAL_MODEL_PATH", "/app/models/gemma-2-2b-it-Q4_K_M.gguf")
 LOCAL_MAX_TOKENS = 160
 CLASSIFY_MAX_TOKENS = 8
+# Worst-case lock wait + generation reserve. Mirrors agent.main.LOCAL_WORST_SECONDS —
+# that copy gates whether the lane is even attempted; this one bounds the budget
+# handed to the lock/generation call itself.
+LOCAL_WORST_SECONDS = 30.0
 
 
 class LocalModel:
@@ -24,17 +29,30 @@ class LocalModel:
         self._llm = llama_factory(model_path=path, n_ctx=2048,
                                   n_threads=n_threads, verbose=False)
 
-    def generate(self, user_text, max_tokens=LOCAL_MAX_TOKENS):
-        with self._lock:
-            out = self._llm.create_chat_completion(
-                messages=[{"role": "user", "content": user_text}],
-                max_tokens=max_tokens, temperature=0.0)
+    def generate(self, user_text, max_tokens=LOCAL_MAX_TOKENS, deadline=None):
+        if deadline is not None:
+            budget = deadline - time.monotonic() - 5.0  # 5s reserve for the answer write
+            if budget <= 0:
+                return ""
+            if not self._lock.acquire(timeout=budget):
+                return ""
+            try:
+                out = self._llm.create_chat_completion(
+                    messages=[{"role": "user", "content": user_text}],
+                    max_tokens=max_tokens, temperature=0.0)
+            finally:
+                self._lock.release()
+        else:
+            with self._lock:
+                out = self._llm.create_chat_completion(
+                    messages=[{"role": "user", "content": user_text}],
+                    max_tokens=max_tokens, temperature=0.0)
         return (out["choices"][0]["message"]["content"] or "").strip()
 
-    def classify(self, prompt, categories):
+    def classify(self, prompt, categories, deadline=None):
         instruction = ("Classify this task. Answer with exactly one word from: "
                        + ", ".join(categories) + ".\nTask: " + prompt[:500]
                        + "\nCategory:")
-        word = self.generate(instruction, max_tokens=CLASSIFY_MAX_TOKENS)
+        word = self.generate(instruction, max_tokens=CLASSIFY_MAX_TOKENS, deadline=deadline)
         word = word.lower().strip(" .:\n\"'")
         return word if word in categories else None

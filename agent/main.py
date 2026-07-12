@@ -32,6 +32,10 @@ LOW_OVERHEAD_TOKENS = 30  # a model this lean is good enough; stop spending prob
 KNOB_TRIGGER_TOKENS = 5  # any hidden-reasoning signal above estimate noise should attempt the cheaper knob
 PROBE_PROMPT = "What is 2+2? Answer with just the number."
 FULL_EFFORT_CATEGORIES = ("logic",)  # low reasoning effort measurably breaks deduction puzzles
+# Worst-case lock wait + generation reserve for the local lane. Mirrors
+# agent.local_model.LOCAL_WORST_SECONDS — that copy bounds LocalModel's own
+# internal budget; this copy gates whether the lane is attempted at all.
+LOCAL_WORST_SECONDS = 30.0
 
 _SIZE_RE = re.compile(r"(\d+(?:\.\d+)?)b(?![a-z0-9])")
 
@@ -212,9 +216,11 @@ def answer_task(client, model, task, deadline, extra_body=None, local=None, rout
               "category": task.get("category", "unknown"), "lane": "fireworks"}
     routing = routing or {}
     if (local is not None and routing.get(result["category"]) == "local"
-            and time.monotonic() < deadline):
+            and time.monotonic() + LOCAL_WORST_SECONDS < deadline):
         try:
-            text = local.generate(build_user_message(task["prompt"], result["category"]))
+            text = local.generate(
+                "Answer in English. " + build_user_message(task["prompt"], result["category"]),
+                deadline=deadline)
             if text:
                 result["answer"] = text
                 result["lane"] = "local"

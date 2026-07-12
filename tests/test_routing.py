@@ -14,7 +14,7 @@ class FakeLocal:
         self.classify_reply = classify_reply
         self.generate_calls = []
 
-    def generate(self, user_text, max_tokens=160):
+    def generate(self, user_text, max_tokens=160, deadline=None):
         self.generate_calls.append(user_text)
         if isinstance(self.reply, Exception):
             raise self.reply
@@ -87,3 +87,12 @@ def test_no_local_model_behaves_as_before():
     client = FakeClient([fake_response("A")])
     r = answer_task(client, "m-x", task(), FUTURE)
     assert r["answer"] == "A" and r["lane"] == "fireworks"
+
+
+def test_near_deadline_skips_local_lane_goes_cloud():
+    client_with_one_response = FakeClient([fake_response("cloud answer")])
+    local = FakeLocal(reply="x")
+    r = answer_task(client_with_one_response, "m-x", task("sentiment"),
+                    time.monotonic() + 5.0, local=local, routing={"sentiment": "local"})
+    assert r["lane"] == "fireworks"
+    assert local.generate_calls == []

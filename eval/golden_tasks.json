@@ -1,0 +1,434 @@
+[
+ {
+  "task_id": "g-sentiment-0",
+  "category": "sentiment",
+  "prompt": "Classify the sentiment of this review: The battery life is great, but the screen scratches too easily.",
+  "expected_intent": "Label 'mixed' (or equivalent) plus a justification naming the positive and negative aspects."
+ },
+ {
+  "task_id": "g-sentiment-1",
+  "category": "sentiment",
+  "prompt": "Classify the sentiment of this review: The coffee was absolutely delicious, however the service was incredibly slow.",
+  "expected_intent": "The assistant must classify the sentiment as 'mixed' (or equivalent) and justify the label by naming the positive aspect (coffee/taste) and the negative aspect (service/speed)."
+ },
+ {
+  "task_id": "g-sentiment-2",
+  "category": "sentiment",
+  "prompt": "Classify the sentiment of this review: This hotel has a stunning view, but the walls are paper thin.",
+  "expected_intent": "The assistant must classify the sentiment as 'mixed' (or equivalent) and justify the label by naming the positive aspect (view/scenery) and the negative aspect (noise/walls)."
+ },
+ {
+  "task_id": "g-sentiment-3",
+  "category": "sentiment",
+  "prompt": "Classify the sentiment of this review: The software interface is intuitive, yet it crashes at least twice daily.",
+  "expected_intent": "The assistant must classify the sentiment as 'mixed' (or equivalent) and justify the label by naming the positive aspect (interface/usability) and the negative aspect (stability/crashes)."
+ },
+ {
+  "task_id": "g-sentiment-4",
+  "category": "sentiment",
+  "prompt": "Classify the sentiment of this review: The dress fits perfectly, but the color looks nothing like the photos.",
+  "expected_intent": "The assistant must classify the sentiment as 'mixed' (or equivalent) and justify the label by naming the positive aspect (fit) and the negative aspect (color accuracy/photos)."
+ },
+ {
+  "task_id": "g-sentiment-5",
+  "category": "sentiment",
+  "prompt": "Classify the sentiment of this review: The teacher is extremely knowledgeable, though the lectures are completely disorganized.",
+  "expected_intent": "The assistant must classify the sentiment as 'mixed' (or equivalent) and justify the label by naming the positive aspect (teacher's knowledge) and the negative aspect (lecture organization)."
+ },
+ {
+  "task_id": "g-sentiment-6",
+  "category": "sentiment",
+  "prompt": "Classify the sentiment of this review: The movie had breathtaking visuals, but the plot made no sense whatsoever.",
+  "expected_intent": "The assistant must classify the sentiment as 'mixed' (or equivalent) and justify the label by naming the positive aspect (visuals/cinematography) and the negative aspect (plot/coherence)."
+ },
+ {
+  "task_id": "g-sentiment-7",
+  "category": "sentiment",
+  "prompt": "Classify the sentiment of this review: The apartment is in a perfect location, however the plumbing is a total nightmare.",
+  "expected_intent": "The assistant must classify the sentiment as 'mixed' (or equivalent) and justify the label by naming the positive aspect (location) and the negative aspect (plumbing)."
+ },
+ {
+  "task_id": "g-sentiment-8",
+  "category": "sentiment",
+  "prompt": "Classify the sentiment of this review: The headphones deliver amazing sound quality, but they become uncomfortable after 30 minutes.",
+  "expected_intent": "The assistant must classify the sentiment as 'mixed' (or equivalent) and justify the label by naming the positive aspect (sound quality) and the negative aspect (comfort)."
+ },
+ {
+  "task_id": "g-sentiment-9",
+  "category": "sentiment",
+  "prompt": "Classify the sentiment of this review: The book started with an engaging premise, yet the ending was deeply unsatisfying.",
+  "expected_intent": "The assistant must classify the sentiment as 'mixed' (or equivalent) and justify the label by naming the positive aspect (premise/engaging start) and the negative aspect (ending)."
+ },
+ {
+  "task_id": "g-sentiment-10",
+  "category": "sentiment",
+  "prompt": "Classify the sentiment of this review: The restaurant offers excellent value for money, but the ambiance is rather depressing.",
+  "expected_intent": "The assistant must classify the sentiment as 'mixed' (or equivalent) and justify the label by naming the positive aspect (value/price) and the negative aspect (ambiance/atmosphere)."
+ },
+ {
+  "task_id": "g-sentiment-11",
+  "category": "sentiment",
+  "prompt": "Classify the sentiment of this review: The gym has top-of-the-line equipment, but the staff are unfriendly and inattentive.",
+  "expected_intent": "The assistant must classify the sentiment as 'mixed' (or equivalent) and justify the label by naming the positive aspect (equipment) and the negative aspect (staff/service)."
+ },
+ {
+  "task_id": "g-ner-0",
+  "category": "ner",
+  "prompt": "Extract all named entities and their types from: Maria Sanchez joined Fireworks AI in Berlin last March.",
+  "expected_intent": "Identifies Maria Sanchez=PERSON, Fireworks AI=ORG, Berlin=LOCATION, last March=DATE."
+ },
+ {
+  "task_id": "g-ner-1",
+  "category": "ner",
+  "prompt": "Extract all named entities and their types from: David Lee started at Google in Mountain View last Tuesday.",
+  "expected_intent": "Identifies David Lee=PERSON, Google=ORG, Mountain View=LOCATION, last Tuesday=DATE."
+ },
+ {
+  "task_id": "g-ner-2",
+  "category": "ner",
+  "prompt": "Extract all named entities and their types from: The treaty was signed by Biden in Geneva in June 2023.",
+  "expected_intent": "Identifies Biden=PERSON, Geneva=LOCATION, June 2023=DATE."
+ },
+ {
+  "task_id": "g-ner-3",
+  "category": "ner",
+  "prompt": "Extract all named entities and their types from: Emily Park presented her research at Stanford University in California last summer.",
+  "expected_intent": "Identifies Emily Park=PERSON, Stanford University=ORG, California=LOCATION, last summer=DATE."
+ },
+ {
+  "task_id": "g-ner-4",
+  "category": "ner",
+  "prompt": "Extract all named entities and their types from: Chen Wei led the delegation from Samsung to New Delhi yesterday.",
+  "expected_intent": "Identifies Chen Wei=PERSON, Samsung=ORG, New Delhi=LOCATION, yesterday=DATE."
+ },
+ {
+  "task_id": "g-ner-5",
+  "category": "ner",
+  "prompt": "Extract all named entities and their types from: Microsoft announced a new partnership with OpenAI in San Francisco on January 15th.",
+  "expected_intent": "Identifies Microsoft=ORG, OpenAI=ORG, San Francisco=LOCATION, January 15th=DATE."
+ },
+ {
+  "task_id": "g-ner-6",
+  "category": "ner",
+  "prompt": "Extract all named entities and their types from: A letter from Angela Merkel was delivered to the European Parliament in Brussels last month.",
+  "expected_intent": "Identifies Angela Merkel=PERSON, European Parliament=ORG, Brussels=LOCATION, last month=DATE."
+ },
+ {
+  "task_id": "g-ner-7",
+  "category": "ner",
+  "prompt": "Extract all named entities and their types from: Ravi Patel attended the WHO summit in Geneva last Monday.",
+  "expected_intent": "Identifies Ravi Patel=PERSON, WHO=ORG, Geneva=LOCATION, last Monday=DATE."
+ },
+ {
+  "task_id": "g-ner-8",
+  "category": "ner",
+  "prompt": "Extract all named entities and their types from: Elon Musk visited the Tesla factory in Austin in March.",
+  "expected_intent": "Identifies Elon Musk=PERSON, Tesla=ORG, Austin=LOCATION, March=DATE."
+ },
+ {
+  "task_id": "g-ner-9",
+  "category": "ner",
+  "prompt": "Extract all named entities and their types from: During the festival in Rio de Janeiro last week, artist Frida Kahlo's paintings were displayed by the Museum of Modern Art.",
+  "expected_intent": "Identifies Rio de Janeiro=LOCATION, last week=DATE, Frida Kahlo=PERSON, Museum of Modern Art=ORG."
+ },
+ {
+  "task_id": "g-ner-10",
+  "category": "ner",
+  "prompt": "Extract all named entities and their types from: NASA director Bill Nelson watched the launch from Cape Canaveral on November 16.",
+  "expected_intent": "Identifies Bill Nelson=PERSON, NASA=ORG, Cape Canaveral=LOCATION, November 16=DATE."
+ },
+ {
+  "task_id": "g-ner-11",
+  "category": "ner",
+  "prompt": "Extract all named entities and their types from: Amazon CEO Andy Jassy met with investors in Seattle on October 3rd.",
+  "expected_intent": "Identifies Amazon=ORG, Andy Jassy=PERSON, Seattle=LOCATION, October 3rd=DATE."
+ },
+ {
+  "task_id": "g-factual-0",
+  "category": "factual",
+  "prompt": "What is the capital of Australia, and what body of water is it near?",
+  "expected_intent": "Canberra; Lake Burley Griffin."
+ },
+ {
+  "task_id": "g-factual-1",
+  "category": "factual",
+  "prompt": "What is the tallest mountain in Africa, and in what country is it located?",
+  "expected_intent": "Mount Kilimanjaro; Tanzania"
+ },
+ {
+  "task_id": "g-factual-2",
+  "category": "factual",
+  "prompt": "What is the chemical symbol for gold, and what is its atomic number?",
+  "expected_intent": "Au; 79"
+ },
+ {
+  "task_id": "g-factual-3",
+  "category": "factual",
+  "prompt": "What is the largest planet in the solar system, and what is its most prominent atmospheric feature?",
+  "expected_intent": "Jupiter; the Great Red Spot"
+ },
+ {
+  "task_id": "g-factual-4",
+  "category": "factual",
+  "prompt": "Who wrote the novel \"1984,\" and in what year was it published?",
+  "expected_intent": "George Orwell; 1949"
+ },
+ {
+  "task_id": "g-factual-5",
+  "category": "factual",
+  "prompt": "What is the longest river in South America, and in which country does it primarily flow?",
+  "expected_intent": "Amazon River; Brazil"
+ },
+ {
+  "task_id": "g-factual-6",
+  "category": "factual",
+  "prompt": "What is the speed of light in a vacuum, and what letter is used to represent it in physics?",
+  "expected_intent": "299,792,458 meters per second; c"
+ },
+ {
+  "task_id": "g-factual-7",
+  "category": "factual",
+  "prompt": "What is the capital of Canada, and in which province is it located?",
+  "expected_intent": "Ottawa; Ontario"
+ },
+ {
+  "task_id": "g-factual-8",
+  "category": "factual",
+  "prompt": "What element has the atomic number 1, and what state is it in at room temperature?",
+  "expected_intent": "Hydrogen; gas"
+ },
+ {
+  "task_id": "g-factual-9",
+  "category": "factual",
+  "prompt": "Who painted the Mona Lisa, and in what country is it currently displayed?",
+  "expected_intent": "Leonardo da Vinci; France"
+ },
+ {
+  "task_id": "g-factual-10",
+  "category": "factual",
+  "prompt": "What is the largest ocean on Earth, and what famous deep-sea trench is located in it?",
+  "expected_intent": "Pacific Ocean; Mariana Trench"
+ },
+ {
+  "task_id": "g-factual-11",
+  "category": "factual",
+  "prompt": "What is the hardest natural mineral, and on what scale is its hardness measured?",
+  "expected_intent": "Diamond; Mohs scale"
+ },
+ {
+  "task_id": "g-logic-0",
+  "category": "logic",
+  "prompt": "Three friends, Sam, Jo, and Lee, each own a different pet: cat, dog, bird. Sam does not own the bird. Jo owns the dog. Who owns the cat?",
+  "expected_intent": "Sam owns the cat."
+ },
+ {
+  "task_id": "g-logic-1",
+  "category": "logic",
+  "prompt": "Three students, Ali, Ben, and Cho, each have a favorite color: red, blue, or green. Ali does not like green. Ben likes red. Who likes blue?",
+  "expected_intent": "Ali likes blue."
+ },
+ {
+  "task_id": "g-logic-2",
+  "category": "logic",
+  "prompt": "Three athletes, Pat, Quinn, and Ray, each play a different sport: soccer, tennis, or basketball. Pat does not play basketball. Quinn plays soccer. Who plays tennis?",
+  "expected_intent": "Pat plays tennis."
+ },
+ {
+  "task_id": "g-logic-3",
+  "category": "logic",
+  "prompt": "Three friends, Zoe, Max, and Amy, each have a backpack of a different color: black, purple, or orange. Zoe does not have orange. Max has black. Who has purple?",
+  "expected_intent": "Zoe has purple."
+ },
+ {
+  "task_id": "g-logic-4",
+  "category": "logic",
+  "prompt": "Three chefs, Eva, Dan, and Flo, each specialize in a different dish: pasta, sushi, or burger. Eva does not make sushi. Dan makes pasta. Who makes the burger?",
+  "expected_intent": "Eva makes the burger."
+ },
+ {
+  "task_id": "g-logic-5",
+  "category": "logic",
+  "prompt": "Three musicians, Gus, Hal, and Ivy, each play a different instrument: piano, violin, or drums. Gus does not play drums. Hal plays piano. Who plays violin?",
+  "expected_intent": "Gus plays violin."
+ },
+ {
+  "task_id": "g-logic-6",
+  "category": "logic",
+  "prompt": "Three travelers, Kim, Lou, and May, each visit a different country: France, Japan, or Brazil. Kim does not visit Brazil. Lou visits France. Who visits Japan?",
+  "expected_intent": "Kim visits Japan."
+ },
+ {
+  "task_id": "g-logic-7",
+  "category": "logic",
+  "prompt": "Three readers, Nia, Opal, and Pete, each read a different genre: mystery, sci-fi, or romance. Nia does not read romance. Opal reads mystery. Who reads sci-fi?",
+  "expected_intent": "Nia reads sci-fi."
+ },
+ {
+  "task_id": "g-logic-8",
+  "category": "logic",
+  "prompt": "Three drivers, Rex, Sue, and Tim, each own a different type of car: sedan, truck, or convertible. Rex does not own the convertible. Sue owns the truck. Who owns the sedan?",
+  "expected_intent": "Rex owns the sedan."
+ },
+ {
+  "task_id": "g-logic-9",
+  "category": "logic",
+  "prompt": "Three gardeners, Uma, Vic, and Will, each planted a different flower: rose, tulip, or lily. Uma did not plant the lily. Vic planted the rose. Who planted the tulip?",
+  "expected_intent": "Uma planted the tulip."
+ },
+ {
+  "task_id": "g-logic-10",
+  "category": "logic",
+  "prompt": "Three customers, Xena, Yara, and Zane, each ordered a different drink: tea, coffee, or juice. Xena did not order juice. Yara ordered tea. Who ordered coffee?",
+  "expected_intent": "Xena ordered coffee."
+ },
+ {
+  "task_id": "g-logic-11",
+  "category": "logic",
+  "prompt": "Three students, Ann, Bob, and Cal, each study a different language: Spanish, French, or German. Ann does not study German. Bob studies Spanish. Who studies French?",
+  "expected_intent": "Ann studies French."
+ },
+ {
+  "task_id": "g-math-0",
+  "category": "math",
+  "prompt": "A store has 240 items. It sells 15% on Monday and 60 more on Tuesday. How many items remain?",
+  "expected_intent": "144."
+ },
+ {
+  "task_id": "g-math-1",
+  "category": "math",
+  "prompt": "A library has 180 books. It checks out 25% on Monday and 30 more on Tuesday. How many books remain?",
+  "expected_intent": "The correct answer is 105."
+ },
+ {
+  "task_id": "g-math-2",
+  "category": "math",
+  "prompt": "A bakery has 300 cookies. It sells 40% in the morning and 50 more in the afternoon. How many cookies remain?",
+  "expected_intent": "The correct answer is 130."
+ },
+ {
+  "task_id": "g-math-3",
+  "category": "math",
+  "prompt": "A school has 500 students. 20% are absent on Friday and 15 more leave early. How many students remain?",
+  "expected_intent": "The correct answer is 385."
+ },
+ {
+  "task_id": "g-math-4",
+  "category": "math",
+  "prompt": "A warehouse has 400 boxes. It ships 35% on Monday and 80 more on Tuesday. How many boxes remain?",
+  "expected_intent": "The correct answer is 180."
+ },
+ {
+  "task_id": "g-math-5",
+  "category": "math",
+  "prompt": "A parking lot has 120 cars. 30% leave by noon and 20 more leave by evening. How many cars remain?",
+  "expected_intent": "The correct answer is 64."
+ },
+ {
+  "task_id": "g-summarisation-0",
+  "category": "summarisation",
+  "prompt": "Summarize the following in exactly one sentence: Electric vehicle adoption accelerated sharply this decade as battery costs fell below $100 per kilowatt-hour, charging networks expanded along major highways, and several countries announced 2035 deadlines for ending combustion-engine sales. Automakers responded by converting existing factories and securing long-term lithium supply contracts, though grid capacity and rural charging access remain unresolved bottlenecks.",
+  "expected_intent": "Exactly one sentence covering falling battery costs / infrastructure growth / policy deadlines driving EV adoption, with automaker response and remaining grid or rural-charging bottlenecks acceptable as included details."
+ },
+ {
+  "task_id": "g-summarisation-1",
+  "category": "summarisation",
+  "prompt": "Summarize the following in exactly one sentence: The James Webb Space Telescope was launched in December 2021 after decades of development. It has since captured infrared images of distant galaxies formed just after the Big Bang. Astronomers are using these observations to study early star formation and to analyze the atmospheric compositions of exoplanets, potentially identifying signs of life.",
+  "expected_intent": "Exactly one sentence covering the main points: the December 2021 launch of the James Webb Space Telescope, its infrared images of early galaxies, and the analysis of exoplanet atmospheres for signs of life."
+ },
+ {
+  "task_id": "g-summarisation-2",
+  "category": "summarisation",
+  "prompt": "Summarize the following in exactly one sentence: The printing press was invented by Johannes Gutenberg around 1440 in Mainz, Germany. This innovation allowed books to be produced faster and more cheaply than manual copying. It led to a rapid spread of literacy, scientific knowledge, and religious reform across Europe within just a few decades.",
+  "expected_intent": "Exactly one sentence covering the main points: Johannes Gutenberg's invention of the printing press around 1440 in Germany, the faster and cheaper mass production of books, and the rapid spread of literacy, scientific knowledge, and religious reform across Europe."
+ },
+ {
+  "task_id": "g-summarisation-3",
+  "category": "summarisation",
+  "prompt": "Summarize the following in exactly one sentence: Coral reefs cover less than one percent of the ocean floor but support approximately twenty-five percent of all marine species. Rising ocean temperatures cause coral bleaching, where corals expel the symbiotic algae living in their tissues. Without these algae, corals lose their main food source and become susceptible to disease and death.",
+  "expected_intent": "Exactly one sentence covering the main points: coral reefs supporting about a quarter of marine species despite covering less than one percent of the ocean floor, rising temperatures causing bleaching by expelling symbiotic algae, and the resulting loss of food and vulnerability to death."
+ },
+ {
+  "task_id": "g-summarisation-4",
+  "category": "summarisation",
+  "prompt": "Summarize the following in exactly one sentence: William Shakespeare was an English playwright and poet who lived during the late sixteenth and early seventeenth centuries. He wrote approximately thirty-seven plays and numerous sonnets that explored themes of love, power, jealousy, and betrayal. His works remain among the most performed and studied pieces of literature in the world today.",
+  "expected_intent": "Exactly one sentence covering the main points: William Shakespeare as an English playwright and poet of the late 16th and early 17th centuries, his roughly 37 plays and sonnets exploring themes like love and power, and his enduring status as the most performed and studied literature worldwide."
+ },
+ {
+  "task_id": "g-summarisation-5",
+  "category": "summarisation",
+  "prompt": "Summarize the following in exactly one sentence: Regular physical activity has been shown to reduce the risk of chronic diseases such as heart disease, type 2 diabetes, and certain cancers. Exercise also improves mental health by reducing symptoms of anxiety and depression through the release of endorphins. Health organizations recommend at least 150 minutes of moderate aerobic activity per week for adults.",
+  "expected_intent": "Exactly one sentence covering the main points: regular physical activity reducing the risk of chronic diseases like heart disease and diabetes, improving mental health via endorphins, and the recommendation of at least 150 minutes of moderate aerobic exercise per week for adults."
+ },
+ {
+  "task_id": "g-code_debug-0",
+  "category": "code_debug",
+  "prompt": "This function should return the max of a list but has a bug: def get_max(nums): return nums[0]. Find and fix it.",
+  "expected_intent": "Corrected function that iterates and returns the true maximum."
+ },
+ {
+  "task_id": "g-code_debug-1",
+  "category": "code_debug",
+  "prompt": "This function should return the sum of a list but has a bug: def get_sum(nums): return 0. Find and fix it.",
+  "expected_intent": "Corrected function that accumulates and returns the true total of all elements in the list."
+ },
+ {
+  "task_id": "g-code_debug-2",
+  "category": "code_debug",
+  "prompt": "This function should check if a number is even but has a bug: def is_even(n): return n % 2 == 1. Find and fix it.",
+  "expected_intent": "Corrected function that returns True when the input is even (e.g., by returning n % 2 == 0)."
+ },
+ {
+  "task_id": "g-code_debug-3",
+  "category": "code_debug",
+  "prompt": "This function should compute the factorial of a non-negative integer but has a bug: def factorial(n): return n * factorial(n - 1). Find and fix it.",
+  "expected_intent": "Corrected recursive function that includes a base case (e.g., if n <= 1: return 1) and returns the true factorial."
+ },
+ {
+  "task_id": "g-code_debug-4",
+  "category": "code_debug",
+  "prompt": "This function should return a reversed string but has a bug: def reverse_string(s): return s. Find and fix it.",
+  "expected_intent": "Corrected function that returns the characters of the input string in reverse order."
+ },
+ {
+  "task_id": "g-code_debug-5",
+  "category": "code_debug",
+  "prompt": "This function should return the average of a list but has a bug: def average(nums): return sum(nums). Find and fix it.",
+  "expected_intent": "Corrected function that divides the sum of the list by its length (e.g., return sum(nums) / len(nums)) and returns the true average."
+ },
+ {
+  "task_id": "g-code_gen-0",
+  "category": "code_gen",
+  "prompt": "Write a Python function that returns the second-largest number in a list, handling duplicates correctly.",
+  "expected_intent": "Working function returning second-largest distinct value, handles duplicates."
+ },
+ {
+  "task_id": "g-code_gen-1",
+  "category": "code_gen",
+  "prompt": "Write a Python function that returns the longest common prefix string amongst a list of strings. If there is no common prefix, return an empty string.",
+  "expected_intent": "Working function returning the longest common prefix shared by all strings; returns an empty string if the list is empty or no common prefix exists."
+ },
+ {
+  "task_id": "g-code_gen-2",
+  "category": "code_gen",
+  "prompt": "Write a Python function that checks if a given string is a palindrome, considering only alphanumeric characters and ignoring case.",
+  "expected_intent": "Working function returning True if the alphanumeric characters form a palindrome ignoring case, and False otherwise."
+ },
+ {
+  "task_id": "g-code_gen-3",
+  "category": "code_gen",
+  "prompt": "Write a Python function that returns the intersection of two integer lists as a list of unique, sorted elements.",
+  "expected_intent": "Working function returning a sorted list of distinct integers present in both input lists; correctly handles empty lists and duplicate values."
+ },
+ {
+  "task_id": "g-code_gen-4",
+  "category": "code_gen",
+  "prompt": "Write a Python function that counts the number of prime numbers strictly less than a given positive integer n.",
+  "expected_intent": "Working function returning the integer count of primes less than n; returns 0 for n <= 2."
+ },
+ {
+  "task_id": "g-code_gen-5",
+  "category": "code_gen",
+  "prompt": "Write a Python function that determines whether a given list of integers is monotonic (either entirely non-decreasing or entirely non-increasing).",
+  "expected_intent": "Working function returning True if the list is monotonic (non-decreasing or non-increasing), and False otherwise; correctly handles lists of length 0 or 1 and equal adjacent elements."
+ }
+]
