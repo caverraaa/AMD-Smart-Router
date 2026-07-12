@@ -17,12 +17,13 @@ def judge_prompt(task, answer):
     return (f"Task given to an AI assistant: {task['prompt']}\n"
             f"Expected (rubric): {task['expected_intent']}\n"
             f"Assistant's answer: {answer}\n\n"
-            "Does the answer satisfy the rubric? Reply with exactly one word: YES or NO.")
+            "Does the answer satisfy the rubric? Start your reply with exactly one word, "
+            "YES or NO, then one short sentence of justification.")
 
 
 def parse_verdict(text):
-    m = _VERDICT_RE.search(text or "")
-    return bool(m and m.group(1).upper() == "YES")
+    matches = _VERDICT_RE.findall(text or "")
+    return bool(matches) and matches[-1].upper() == "YES"
 
 
 def score_results(golden, results, verdicts):
@@ -62,7 +63,7 @@ def main():
             verdicts[t["task_id"]] = False
             continue
         resp = client.chat.completions.create(
-            model=judge_model, max_tokens=512, timeout=30,
+            model=judge_model, max_tokens=2048, timeout=30,
             messages=[{"role": "user", "content": judge_prompt(t, answer)}])
         verdicts[t["task_id"]] = parse_verdict(resp.choices[0].message.content)
 

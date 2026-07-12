@@ -31,6 +31,7 @@ PROBE_MAX_TOKENS = 200  # headroom so hidden reasoning shows up in the overhead 
 LOW_OVERHEAD_TOKENS = 30  # a model this lean is good enough; stop spending probe tokens
 KNOB_TRIGGER_TOKENS = 5  # any hidden-reasoning signal above estimate noise should attempt the cheaper knob
 PROBE_PROMPT = "What is 2+2? Answer with just the number."
+FULL_EFFORT_CATEGORIES = ("logic",)  # low reasoning effort measurably breaks deduction puzzles
 
 _SIZE_RE = re.compile(r"(\d+(?:\.\d+)?)b(?![a-z0-9])")
 
@@ -220,6 +221,7 @@ def answer_task(client, model, task, deadline, extra_body=None, local=None, rout
                 return result  # zero Fireworks tokens
         except Exception as exc:  # noqa: BLE001 — local failure falls back to cloud
             log(f"WARN: local lane failed for {task['task_id']}: {type(exc).__name__}: {exc}")
+    effective_extra = None if result["category"] in FULL_EFFORT_CATEGORIES else extra_body
     attempts = ((FIRST_TIMEOUT_SECONDS, MAX_TOKENS), (RETRY_TIMEOUT_SECONDS, RETRY_MAX_TOKENS))
     for attempt, (timeout, max_tokens) in enumerate(attempts):
         if time.monotonic() >= deadline:
@@ -234,7 +236,7 @@ def answer_task(client, model, task, deadline, extra_body=None, local=None, rout
                 ],
                 max_tokens=max_tokens,
                 timeout=timeout,
-                **({"extra_body": extra_body} if extra_body else {}),
+                **({"extra_body": effective_extra} if effective_extra else {}),
             )
             usage = getattr(resp, "usage", None)
             if usage is not None:  # tokens are billed per attempt — accumulate

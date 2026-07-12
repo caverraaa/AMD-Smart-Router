@@ -15,6 +15,8 @@ def test_parse_verdict_yes_no():
     assert parse_verdict("The answer satisfies the rubric. Verdict: YES.") is True
     assert parse_verdict("NO — the label is missing justification") is False
     assert parse_verdict("") is False  # unparseable counts as NO (conservative)
+    assert parse_verdict("Reply YES or NO... my analysis... verdict: NO") is False
+    assert parse_verdict("Is it NO? On reflection, YES") is True
 
 
 def test_judge_prompt_contains_rubric_and_answer():
