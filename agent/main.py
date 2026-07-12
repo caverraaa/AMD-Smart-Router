@@ -27,11 +27,11 @@ RETRY_BACKOFF_SECONDS = 2.0
 SOFT_BUDGET_SECONDS = 540.0  # 9 min of the 10-min limit; the rest is startup/write/exit margin
 MAX_WORKERS = 4
 PROBE_TIMEOUT_SECONDS = 10.0
-PROBE_MAX_TOKENS = 200  # headroom so hidden reasoning shows up in the overhead measurement
+PROBE_MAX_TOKENS = 96  # enough to detect hidden-reasoning truncation; caps probe spend
 LOW_OVERHEAD_TOKENS = 30  # a model this lean is good enough; stop spending probe tokens
 KNOB_TRIGGER_TOKENS = 5  # any hidden-reasoning signal above estimate noise should attempt the cheaper knob
 PROBE_PROMPT = "What is 2+2? Answer with just the number."
-FULL_EFFORT_CATEGORIES = ("logic",)  # low reasoning effort measurably breaks deduction puzzles
+FULL_EFFORT_CATEGORIES = ()  # empty: eval gate (~80%) affords low-effort logic (measured 11/12 pre-fix); mechanism kept for re-enabling
 # Worst-case lock wait + generation reserve for the local lane. Mirrors
 # agent.local_model.LOCAL_WORST_SECONDS — that copy bounds LocalModel's own
 # internal budget; this copy gates whether the lane is attempted at all.

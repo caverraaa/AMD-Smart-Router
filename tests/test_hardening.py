@@ -144,11 +144,19 @@ def test_answer_task_passes_extra_body():
     assert client.chat.completions.calls[0]["extra_body"] == {"reasoning_effort": "low"}
 
 
-def test_logic_category_suppresses_low_effort_knob():
+def test_full_effort_category_suppresses_knob(monkeypatch):
+    monkeypatch.setattr(m, "FULL_EFFORT_CATEGORIES", ("logic",))
     client = FakeClient([fake_response("Sam owns the cat.")])
     task = {"task_id": "t1", "prompt": "who owns the cat?", "category": "logic"}
     answer_task(client, "m-x", task, FUTURE, extra_body={"reasoning_effort": "low"})
     assert "extra_body" not in client.chat.completions.calls[0]
+
+
+def test_logic_gets_knob_by_default():
+    client = FakeClient([fake_response("Sam owns the cat.")])
+    task = {"task_id": "t1", "prompt": "who owns the cat?", "category": "logic"}
+    answer_task(client, "m-x", task, FUTURE, extra_body={"reasoning_effort": "low"})
+    assert client.chat.completions.calls[0]["extra_body"] == {"reasoning_effort": "low"}
 
 
 # --- Fix 3: empty-content retry (reasoning exhaustion) -----------------------
