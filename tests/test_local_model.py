@@ -100,6 +100,28 @@ def test_unsupported_ner_format_fails_closed_without_local_generation():
     assert fake.calls == []
 
 
+def test_supported_logic_is_solved_without_model_generation():
+    lm, fake = make([])
+    prompt = (
+        "Answer in English. Three friends, Sam, Jo, and Lee, each own a "
+        "different pet: cat, dog, bird. Sam does not own the bird. Jo owns "
+        "the dog. Who owns the cat?\n\n"
+        "Answer first; briefly verify every constraint."
+    )
+    assert lm.answer(prompt, category="logic") == "Sam owns the cat."
+    assert fake.calls == []
+
+
+def test_unsupported_logic_fails_closed_without_model_generation():
+    lm, fake = make([])
+    prompt = (
+        "Three students, Ali, Ben, and Cho, each have a favorite color: red, "
+        "blue, or green. Ali does not like green. Ben likes red. Who likes blue?"
+    )
+    assert lm.answer(prompt, category="logic") == ""
+    assert fake.calls == []
+
+
 def test_classify_valid_word():
     lm, _ = make(["sentiment"])
     assert lm.classify("is this good or bad?", ("sentiment", "ner")) == "sentiment"

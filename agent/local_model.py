@@ -17,13 +17,17 @@ try:
         repair_shortened_date_spans,
         repair_trailing_descriptors,
         supports_local_ner_request,
+        validate_logic_answer,
         validate_ner_answer,
     )
+    from agent.local_tools import solve_assignment_logic
 except ImportError:  # executed with /app/agent on sys.path
     from local_validators import (build_ner_prompt, is_ner_request,
                                   repair_shortened_date_spans,
                                   repair_trailing_descriptors,
-                                  supports_local_ner_request, validate_ner_answer)
+                                  supports_local_ner_request,
+                                  validate_logic_answer, validate_ner_answer)
+    from local_tools import solve_assignment_logic
 
 DEFAULT_MODEL_PATH = os.environ.get(
     "LOCAL_MODEL_PATH", "/app/models/gemma-2-2b-it-Q4_K_M.gguf")
@@ -73,6 +77,10 @@ class LocalModel:
         Invalid NER gets one local repair attempt; a second invalid answer
         becomes ``""`` so the existing caller falls back to Fireworks.
         """
+        if category == "logic":
+            solved = solve_assignment_logic(user_text)
+            checked = validate_logic_answer(user_text, solved)
+            return checked.answer if checked.valid else ""
         if category == "ner" or (category is None and is_ner_request(user_text)):
             if not supports_local_ner_request(user_text):
                 return ""

@@ -28,7 +28,7 @@ Owns `agent/main.py`, `agent/router.py`, and the task/probe/telemetry tests.
 - [x] P3: replace paid runtime probes with an offline-validated model policy.
 - [x] P5: shorten per-category instructions without accuracy regressions.
 - [x] P6: introduce per-category first-attempt and retry token caps.
-- [ ] P9: evaluate small same-category Fireworks batches.
+- [x] P9: enable validated factual Fireworks batches of three to four tasks.
 
 ### Developer B — local/zero path (`phase3-local-zero`)
 
@@ -39,7 +39,7 @@ and new local pipeline/validator/tool modules. Developer B does not edit
 - [x] P2: validate and package the existing local sentiment lane.
 - [x] P4: improve local NER to the tightened deterministic 12/12 gate.
 - [x] P7: add local structural validators and one repair attempt.
-- [ ] P8: evaluate local factual and logic lanes.
+- [x] P8: keep factual cloud; solve supported logic locally with fail-closed fallback.
 - [ ] P10: prototype deterministic math/code/knowledge tools.
 
 ## Experiment ledger
@@ -53,6 +53,7 @@ probe plus task prompt and completion tokens.
 | 2026-07-12 | scored image | v3 tokendiet | 100.0% | unknown | unknown | unknown | unknown | 11,196 | unknown | accuracy reference |
 | 2026-07-12 | `3be16cb` | P1b practice: gpt-oss-120b, sentiment local | 8/8 | 170 | 50 | 791 | 827 | 1,838 | 17.9s | pass; 9 calls, 0 retries |
 | 2026-07-12 | working tree | P3–P6: no probes, compact prompts/caps, sentiment+NER local | 8/8 | 0 | 0 | 656 | 753 | 1,409 | 12.6–20.1s | pass x4; 6 calls, 0 retries |
+| 2026-07-12 | `phase3-local-batching` | P7–P9: validated logic local, factual batches 3–4 | 8/8 | 0 | 0 | 542 | 570 | 1,112 | 19.8s | pass; 5 calls, 0 retries |
 
 The P1b container was `linux/amd64`, 1,784,945,262 bytes. The repository's
 `.env` model ID was obsolete and returned 404, so the valid text-model catalog
@@ -72,6 +73,30 @@ Practice savings attribution: 220 tokens from removing probes, 176 from moving
 NER local, and 33 net from compact cloud prompts/responses. Category caps did
 not trigger on practice; their value is bounding hidden-set runaways while the
 safe retry caps preserve completeness.
+
+## Priorities 7-9 results
+
+- Gemma factual baseline was 11/12 and hallucinated the requested body of
+  water for Canberra, so factual remains Fireworks.
+- Gemma logic baseline was 0/12. A strict all-different assignment solver now
+  proves 11/12 golden-style tasks locally; the one prompt without an explicit
+  uniqueness constraint fails closed to Fireworks. Two runs were stable and a
+  four-worker burst completed in 0.015s.
+- Two final practice runs with sentiment, NER, and supported logic local stayed
+  8/8 and used 1,106 and 1,112 tokens (five Fireworks calls, zero
+  probes/retries). The latest run is 21.1% below the P3-P6 candidate and 39.5%
+  below the original measured practice baseline.
+- Factual batching is limited to same-category cloud groups of 3-4. A public
+  four-task A/B stayed 4/4 while reducing 524 to 459 tokens (12.4%) and four to
+  two calls. An extended public run passed 12/12 in three batches with zero
+  fallback/retries and used 1,204 tokens.
+- Batching is enabled in the candidate Docker image and may be disabled with
+  `ENABLE_BATCHING=0`. Malformed, duplicate, extra, missing, truncated, or
+  invalid batch entries fail closed to the individual Fireworks path.
+- A two-task A/B cost 307 batched versus 259 individual tokens, so pairs are
+  deliberately not batched; the minimum size is three.
+- The final suite passed 187 tests. The linux/amd64 candidate image is
+  1,784,979,715 bytes and has `ENABLE_BATCHING=1` in its image environment.
 
 ## Merge order
 

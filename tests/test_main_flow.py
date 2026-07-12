@@ -14,6 +14,7 @@ def setup_env(monkeypatch, tmp_path, tasks):
     monkeypatch.setenv("FIREWORKS_BASE_URL", "https://proxy.example/v1")
     monkeypatch.setenv("ALLOWED_MODELS", "accounts/x/small-2b,accounts/x/big-70b")
     monkeypatch.delenv("CHEAP_MODEL", raising=False)
+    monkeypatch.delenv("ENABLE_BATCHING", raising=False)
     monkeypatch.setenv("AGENT_INPUT", str(input_path))
     monkeypatch.setenv("AGENT_OUTPUT", str(output_path))
     return output_path

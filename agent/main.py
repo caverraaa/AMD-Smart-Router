@@ -13,9 +13,29 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from openai import OpenAI
 
 try:
+    from agent.batching import (
+        BATCHABLE_CATEGORIES,
+        MAX_BATCH_SIZE,
+        MIN_BATCH_SIZE,
+        batch_token_cap,
+        batching_enabled,
+        build_batch_messages,
+        parse_batch_answers,
+        plan_batches,
+    )
     from agent.router import build_user_message, categorize
 except ImportError:  # executed as a script (python /app/agent/main.py)
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from agent.batching import (
+        BATCHABLE_CATEGORIES,
+        MAX_BATCH_SIZE,
+        MIN_BATCH_SIZE,
+        batch_token_cap,
+        batching_enabled,
+        build_batch_messages,
+        parse_batch_answers,
+        plan_batches,
+    )
     from agent.router import build_user_message, categorize
 
 SYSTEM_PROMPT = "Answer in English. Be accurate and brief."
@@ -295,6 +315,69 @@ def answer_task(client, model, task, deadline, extra_body=None, local=None, rout
     return result
 
 
+def answer_batch(client, model, tasks, deadline, extra_body=None):
+    """Attempt one strict same-category cloud batch, without a batch retry.
+
+    Any task not validated in the response is returned in ``fallback_tasks``
+    for the existing individual ``answer_task`` path.  This function never
+    raises, and all usage from the batch attempt is retained even when parsing
+    fails and every task falls back.
+    """
+    tasks = list(tasks)
+    outcome = {
+        "answers": {}, "fallback_tasks": tasks,
+        "prompt_tokens": 0, "completion_tokens": 0,
+        "fireworks_calls": 0, "error": None,
+        "category": tasks[0].get("category", "unknown") if tasks else "unknown",
+    }
+    categories = {task.get("category", "unknown") for task in tasks}
+    if (
+        not MIN_BATCH_SIZE <= len(tasks) <= MAX_BATCH_SIZE
+        or len(categories) != 1
+        or outcome["category"] not in BATCHABLE_CATEGORIES
+    ):
+        outcome["error"] = "ineligible or mixed-category batch"
+        return outcome
+    now = time.monotonic()
+    if now >= deadline:
+        outcome["error"] = "soft budget exhausted before batch dispatch"
+        return outcome
+
+    category = outcome["category"]
+    effective_extra = None if category in FULL_EFFORT_CATEGORIES else extra_body
+    first_cap, _ = token_caps_for(category)
+    try:
+        outcome["fireworks_calls"] = 1
+        resp = client.chat.completions.create(
+            model=model,
+            messages=build_batch_messages(tasks, SYSTEM_PROMPT, build_user_message),
+            max_tokens=batch_token_cap(first_cap, len(tasks)),
+            temperature=0.0,
+            timeout=min(FIRST_TIMEOUT_SECONDS, max(0.1, deadline - now)),
+            **({"extra_body": effective_extra} if effective_extra else {}),
+        )
+        usage = getattr(resp, "usage", None)
+        if usage is not None:
+            outcome["prompt_tokens"] = usage.prompt_tokens or 0
+            outcome["completion_tokens"] = usage.completion_tokens or 0
+        choice = resp.choices[0]
+        content = (choice.message.content or "").strip()
+        finish = getattr(choice, "finish_reason", None)
+        if finish == "length":
+            outcome["error"] = "truncated batch content (finish_reason=length)"
+            return outcome
+        parsed = parse_batch_answers(content, (task["task_id"] for task in tasks))
+        outcome["answers"] = parsed.answers
+        fallback = set(parsed.fallback_ids)
+        outcome["fallback_tasks"] = [
+            task for task in tasks if str(task["task_id"]) in fallback
+        ]
+        outcome["error"] = parsed.error
+    except Exception as exc:  # noqa: BLE001 - every task falls back individually
+        outcome["error"] = f"{type(exc).__name__}: {exc}"
+    return outcome
+
+
 def main():
     start = time.monotonic()
     deadline = start + SOFT_BUDGET_SECONDS
@@ -315,6 +398,8 @@ def main():
 
     task_prompt_tokens = task_completion_tokens = failed = 0
     task_calls = retry_calls = retry_prompt_tokens = retry_completion_tokens = 0
+    batch_calls = batch_prompt_tokens = batch_completion_tokens = 0
+    batch_accepted_tasks = batch_fallback_tasks = batch_failures = 0
     probe_stats = _empty_usage_stats()
     model = "(none)"
     try:
@@ -334,11 +419,61 @@ def main():
             except Exception as exc:  # noqa: BLE001 — pure-cloud mode is always safe
                 log(f"WARN: local model unavailable ({type(exc).__name__}: {exc}); pure-cloud mode")
                 routing = {}
+        for t in answerable:
+            t["category"] = categorize(t["prompt"])
+
+        batch_groups = []
+        individual_tasks = list(answerable)
+        if batching_enabled():
+            batch_groups, individual_tasks = plan_batches(answerable, routing)
+            log(
+                f"batching: enabled categories={','.join(sorted(BATCHABLE_CATEGORIES))} "
+                f"batches={len(batch_groups)} "
+                f"batched_tasks={sum(len(group) for group in batch_groups)}"
+            )
+
+        # Batch requests run first. Any missing, malformed, or ambiguous item
+        # is appended to the established individual path below.
+        if batch_groups:
+            with ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
+                futures = [
+                    pool.submit(answer_batch, client, model, group, deadline, extra_body)
+                    for group in batch_groups
+                ]
+                for fut in as_completed(futures):
+                    outcome = fut.result()  # answer_batch never raises
+                    accepted = len(outcome["answers"])
+                    fallback_count = len(outcome["fallback_tasks"])
+                    batch_size = accepted + fallback_count
+                    batch_calls += outcome["fireworks_calls"]
+                    batch_prompt_tokens += outcome["prompt_tokens"]
+                    batch_completion_tokens += outcome["completion_tokens"]
+                    batch_accepted_tasks += accepted
+                    batch_fallback_tasks += fallback_count
+                    batch_failures += int(bool(outcome["error"]))
+                    task_calls += outcome["fireworks_calls"]
+                    task_prompt_tokens += outcome["prompt_tokens"]
+                    task_completion_tokens += outcome["completion_tokens"]
+                    log(
+                        f"batch cat={outcome['category']} size={batch_size} "
+                        f"accepted={accepted} fallback={fallback_count} "
+                        f"pt={outcome['prompt_tokens']} ct={outcome['completion_tokens']} "
+                        f"calls={outcome['fireworks_calls']}"
+                    )
+                    if outcome["error"]:
+                        log(f"WARN: batch {outcome['category']}: {outcome['error']}")
+                    for task_id, answer in outcome["answers"].items():
+                        answers[task_id] = answer
+                        log(
+                            f"task={task_id} cat={outcome['category']} pt=0 ct=0 "
+                            "calls=0 retries=0 lane=fireworks_batch"
+                        )
+                    individual_tasks.extend(outcome["fallback_tasks"])
+                    write_snapshot(task_ids, answers, output_path)
+
         with ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
-            for t in answerable:
-                t["category"] = categorize(t["prompt"])
             futures = [pool.submit(answer_task, client, model, t, deadline,
-                                   extra_body, local, routing) for t in answerable]
+                                   extra_body, local, routing) for t in individual_tasks]
             for fut in as_completed(futures):
                 r = fut.result()  # answer_task never raises
                 answers[r["task_id"]] = r["answer"]
@@ -367,8 +502,13 @@ def main():
             f"stats: tasks={len(task_ids)} answered={answered} failed={failed} "
             f"fireworks_calls={fireworks_calls} probe_calls={probe_stats['calls']} "
             f"task_calls={task_calls} retry_calls={retry_calls} "
+            f"batch_calls={batch_calls} batch_failures={batch_failures} "
+            f"batch_accepted_tasks={batch_accepted_tasks} "
+            f"batch_fallback_tasks={batch_fallback_tasks} "
             f"probe_prompt_tokens={probe_stats['prompt_tokens']} "
             f"probe_completion_tokens={probe_stats['completion_tokens']} "
+            f"batch_prompt_tokens={batch_prompt_tokens} "
+            f"batch_completion_tokens={batch_completion_tokens} "
             f"task_prompt_tokens={task_prompt_tokens} "
             f"task_completion_tokens={task_completion_tokens} "
             f"retry_prompt_tokens={retry_prompt_tokens} "

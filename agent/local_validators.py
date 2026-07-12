@@ -7,6 +7,11 @@ which lets the existing caller fall back to Fireworks.
 import re
 from dataclasses import dataclass
 
+try:
+    from agent.local_tools import solve_assignment_logic
+except ImportError:  # executed with /app/agent on sys.path
+    from local_tools import solve_assignment_logic
+
 
 NER_TYPES = ("PERSON", "ORG", "LOCATION", "DATE")
 NER_FIRST_SUFFIX = (
@@ -76,6 +81,27 @@ class NerValidation:
     valid: bool
     answer: str
     issues: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class LogicValidation:
+    valid: bool
+    answer: str
+    issues: tuple[str, ...]
+
+
+def validate_logic_answer(user_text, answer):
+    """Prove and canonicalize a supported assignment-puzzle answer.
+
+    The expected answer is derived from all parsed constraints, not from the
+    model output.  Unsupported and ambiguous puzzles fail closed.
+    """
+    expected = solve_assignment_logic(user_text)
+    if not expected:
+        return LogicValidation(False, "", ("unsupported or ambiguous logic",))
+    if _normalized(answer).strip(" .") != _normalized(expected).strip(" ."):
+        return LogicValidation(False, "", ("answer does not satisfy constraints",))
+    return LogicValidation(True, expected, ())
 
 
 def _normalized(text):
