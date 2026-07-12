@@ -18,7 +18,7 @@ except ImportError:  # executed as a script (python /app/agent/main.py)
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     from agent.router import build_user_message, categorize
 
-SYSTEM_PROMPT = "You are a precise task execution agent. Give direct, minimal, and concise answers without explanation, markdown tables, preambles, or conversational filler. If asked for code, return ONLY the raw code block. If asked for a fact, return only the fact."
+SYSTEM_PROMPT = "Answer in English. Be accurate and brief."
 MAX_TOKENS = 2048  # reasoning models spend hidden tokens before the answer; 1024 truncated them
 RETRY_MAX_TOKENS = 4096  # retry after an empty/truncated response gets more headroom
 FIRST_TIMEOUT_SECONDS = 20.0
@@ -208,7 +208,7 @@ def answer_task(client, model, task, deadline, extra_body=None):
                 model=model,
                 messages=[
                     {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": task["prompt"]},
+                    {"role": "user", "content": build_user_message(task["prompt"], result["category"])},
                 ],
                 max_tokens=max_tokens,
                 timeout=timeout,
