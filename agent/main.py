@@ -29,6 +29,7 @@ MAX_WORKERS = 4
 PROBE_TIMEOUT_SECONDS = 10.0
 PROBE_MAX_TOKENS = 200  # headroom so hidden reasoning shows up in the overhead measurement
 LOW_OVERHEAD_TOKENS = 30  # a model this lean is good enough; stop spending probe tokens
+KNOB_TRIGGER_TOKENS = 5  # any hidden-reasoning signal above estimate noise should attempt the cheaper knob
 PROBE_PROMPT = "What is 2+2? Answer with just the number."
 
 _SIZE_RE = re.compile(r"(\d+(?:\.\d+)?)b(?![a-z0-9])")
@@ -87,7 +88,7 @@ def pick_working_model(client, allowed_models):
             log(f"WARN: model {model} failed probe: {type(exc).__name__}: {exc}")
             continue
         extra = None
-        if overhead > LOW_OVERHEAD_TOKENS:
+        if overhead > KNOB_TRIGGER_TOKENS:
             try:  # reasoning model: does it accept a low-effort knob?
                 low = _probe(client, model, extra_body={"reasoning_effort": "low"})
                 if low < overhead:

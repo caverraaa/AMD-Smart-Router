@@ -117,14 +117,24 @@ def test_reasoning_model_gets_low_effort_knob(monkeypatch):
 def test_low_effort_rejected_keeps_default(monkeypatch):
     monkeypatch.delenv("CHEAP_MODEL", raising=False)
     # model A: high overhead, low-effort knob rejected -> stays candidate at 149
-    # model B: lean -> wins
+    # model B: lean enough to skip the knob (overhead 3 <= 5) -> wins
     client = FakeClient([
         probe_response("4", 150), RuntimeError("unknown param reasoning_effort"),
-        probe_response("4", 10),
+        probe_response("4", 4),
     ])
     model, extra = pick_working_model(client, ["accounts/x/reasoner-2b", "accounts/x/plain-8b"])
     assert model == "accounts/x/plain-8b"
     assert extra is None
+
+
+def test_moderate_overhead_still_gets_knob_attempt(monkeypatch):
+    monkeypatch.delenv("CHEAP_MODEL", raising=False)
+    # live bug: default probe measured overhead 30 (== old threshold) and the
+    # knob was skipped; any overhead above estimate noise must try the knob
+    client = FakeClient([probe_response("4", 31), probe_response("4", 16)])
+    model, extra = pick_working_model(client, ["accounts/x/reasoner-120b"])
+    assert extra == {"reasoning_effort": "low"}
+    assert len(client.chat.completions.calls) == 2
 
 
 def test_answer_task_passes_extra_body():
