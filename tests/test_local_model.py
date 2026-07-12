@@ -1,4 +1,5 @@
 import threading
+import time
 
 from agent.local_model import CLASSIFY_MAX_TOKENS, LOCAL_MAX_TOKENS, LocalModel
 
@@ -15,6 +16,7 @@ class FakeLlama:
         with self._lock:
             self.active += 1
             self.max_active = max(self.max_active, self.active)
+        time.sleep(0.005)  # real inference takes time; without this, unlocked calls never overlap
         self.calls.append(kwargs)
         reply = self.replies.pop(0)
         with self._lock:
