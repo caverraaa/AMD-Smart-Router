@@ -41,7 +41,30 @@ def test_generate_returns_stripped_text():
     assert lm.generate("classify this") == "Positive — praises battery."
     call = fake.calls[0]
     assert call["max_tokens"] == LOCAL_MAX_TOKENS
-    assert call["messages"] == [{"role": "user", "content": "classify this"}]  # no system role
+    assert call["messages"] == [
+        {"role": "user", "content": "classify this /no_think"}
+    ]  # no system role, no_think switch appended
+
+
+def test_generate_appends_no_think_suffix():
+    lm, fake = make(["ok"])
+    lm.generate("some prompt")
+    assert fake.calls[0]["messages"][0]["content"] == "some prompt /no_think"
+
+
+def test_generate_strips_think_block():
+    lm, _ = make(["<think>reasoning here</think>The answer"])
+    assert lm.generate("p") == "The answer"
+
+
+def test_generate_passes_through_when_no_think_block():
+    lm, _ = make(["plain answer, no think tags"])
+    assert lm.generate("p") == "plain answer, no think tags"
+
+
+def test_generate_returns_empty_on_unclosed_think_block():
+    lm, _ = make(["<think>still reasoning"])
+    assert lm.generate("p") == ""
 
 
 def test_generate_custom_cap():
