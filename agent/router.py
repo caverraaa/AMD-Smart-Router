@@ -34,10 +34,10 @@ CONSTRAINTS = {
     "sentiment": "Answer with the sentiment label (positive, negative, neutral, or mixed) plus a one-sentence justification. If the text contains both clearly positive and clearly negative aspects, label it mixed.",
     "ner": "List each entity with its type (PERSON, ORG, LOCATION, DATE), one per line, including relative dates such as 'next month'. No extra text.",
     "summarisation": "Obey the stated format and length exactly. No preamble.",
-    "math": "Give only the final answer.",
+    "math": "Give the final answer first, then at most two sentences of working.",
     "code_debug": "Output only the corrected code.",
     "code_gen": "Output only the code.",
-    "logic": "State only the answer.",
+    "logic": "State the answer first, then verify each constraint in one short line each.",
     "factual": "Answer in at most two sentences.",
 }
 
