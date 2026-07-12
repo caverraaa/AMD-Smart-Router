@@ -1,4 +1,4 @@
-"""Gemma-3-4B-it via llama-cpp, CPU-only, serialized behind a lock.
+"""Gemma-2-2B-it via llama-cpp, CPU-only, serialized behind a lock.
 
 llama.cpp contexts are not thread-safe: exactly one generation runs at a
 time; the Fireworks worker pool is unaffected. Gemma has no system role,
@@ -11,18 +11,12 @@ import threading
 import time
 
 DEFAULT_MODEL_PATH = os.environ.get(
-    "LOCAL_MODEL_PATH", "/app/models/gemma-3-4b-it-Q4_K_M.gguf")
+    "LOCAL_MODEL_PATH", "/app/models/gemma-2-2b-it-Q4_K_M.gguf")
 LOCAL_MAX_TOKENS = 160
 CLASSIFY_MAX_TOKENS = 8
-LOCAL_CATEGORY_MAX_TOKENS = {
-    "sentiment": 160, "ner": 160, "factual": 160,
-    "summarisation": 256, "math": 256,
-    "logic": 320, "code_debug": 320, "code_gen": 320,
-}
-# Worst-case lock wait + generation reserve; bounds the budget handed to the
-# lock/generation call itself. agent.main imports this constant directly
-# (single source of truth) to gate whether the lane is even attempted.
-# TODO: recalibrated by the v6 spike (Task 2).
+# Worst-case lock wait + generation reserve. Mirrors agent.main.LOCAL_WORST_SECONDS —
+# that copy gates whether the lane is even attempted; this one bounds the budget
+# handed to the lock/generation call itself.
 LOCAL_WORST_SECONDS = 30.0
 
 

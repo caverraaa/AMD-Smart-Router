@@ -1,13 +1,7 @@
 import threading
 import time
 
-from agent.local_model import (
-    CLASSIFY_MAX_TOKENS,
-    LOCAL_CATEGORY_MAX_TOKENS,
-    LOCAL_MAX_TOKENS,
-    LOCAL_WORST_SECONDS,
-    LocalModel,
-)
+from agent.local_model import CLASSIFY_MAX_TOKENS, LOCAL_MAX_TOKENS, LOCAL_WORST_SECONDS, LocalModel
 
 
 class FakeLlama:
@@ -83,19 +77,6 @@ def test_concurrent_calls_serialize():
 
 def test_local_worst_seconds_constant():
     assert LOCAL_WORST_SECONDS == 30.0
-
-
-def test_local_category_max_tokens_has_exactly_eight_categories():
-    assert LOCAL_CATEGORY_MAX_TOKENS == {
-        "sentiment": 160,
-        "ner": 160,
-        "factual": 160,
-        "summarisation": 256,
-        "math": 256,
-        "logic": 320,
-        "code_debug": 320,
-        "code_gen": 320,
-    }
 
 
 def test_generate_returns_empty_when_lock_held_past_deadline():

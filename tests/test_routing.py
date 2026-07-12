@@ -13,11 +13,9 @@ class FakeLocal:
         self.reply = reply
         self.classify_reply = classify_reply
         self.generate_calls = []
-        self.max_tokens_calls = []
 
     def generate(self, user_text, max_tokens=160, deadline=None):
         self.generate_calls.append(user_text)
-        self.max_tokens_calls.append(max_tokens)
         if isinstance(self.reply, Exception):
             raise self.reply
         return self.reply
@@ -89,22 +87,6 @@ def test_no_local_model_behaves_as_before():
     client = FakeClient([fake_response("A")])
     r = answer_task(client, "m-x", task(), FUTURE)
     assert r["answer"] == "A" and r["lane"] == "fireworks"
-
-
-def test_summarisation_category_passes_category_max_tokens_cap():
-    local = FakeLocal(reply="A summary.")
-    r = answer_task(FakeClient([]), "m-x", task("summarisation"), FUTURE,
-                    local=local, routing={"summarisation": "local"})
-    assert r["lane"] == "local"
-    assert local.max_tokens_calls == [256]
-
-
-def test_unknown_category_local_lane_defaults_to_160_max_tokens():
-    local = FakeLocal(reply="An answer.")
-    r = answer_task(FakeClient([]), "m-x", task("some_new_category"), FUTURE,
-                    local=local, routing={"some_new_category": "local"})
-    assert r["lane"] == "local"
-    assert local.max_tokens_calls == [160]
 
 
 def test_near_deadline_skips_local_lane_goes_cloud():
