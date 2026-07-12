@@ -38,7 +38,9 @@ def test_success(monkeypatch):
     client = FakeClient([fake_response("4")])
     r = answer_task(client, "m-2b", TASK, FUTURE)
     assert r == {"task_id": "t1", "answer": "4", "prompt_tokens": 10,
-                 "completion_tokens": 5, "error": None, "category": "unknown", "lane": "fireworks"}
+                 "completion_tokens": 5, "error": None, "category": "unknown",
+                 "lane": "fireworks", "fireworks_calls": 1, "retry_calls": 0,
+                 "retry_prompt_tokens": 0, "retry_completion_tokens": 0}
     call = client.chat.completions.calls[0]
     assert call["model"] == "m-2b"
     assert call["max_tokens"] == m.MAX_TOKENS
@@ -54,6 +56,9 @@ def test_retry_succeeds_with_longer_timeout(monkeypatch):
     r = answer_task(client, "m-2b", TASK, FUTURE)
     assert r["answer"] == "4"
     assert r["error"] is None
+    assert r["fireworks_calls"] == 2 and r["retry_calls"] == 1
+    assert r["retry_prompt_tokens"] == 10
+    assert r["retry_completion_tokens"] == 5
     assert client.chat.completions.calls[1]["timeout"] == m.RETRY_TIMEOUT_SECONDS
 
 
@@ -63,6 +68,7 @@ def test_both_attempts_fail_returns_empty(monkeypatch):
     r = answer_task(client, "m-2b", TASK, FUTURE)
     assert r["answer"] == ""
     assert "RuntimeError" in r["error"]
+    assert r["fireworks_calls"] == 2 and r["retry_calls"] == 1
     assert len(client.chat.completions.calls) == 2
 
 
@@ -89,4 +95,5 @@ def test_none_content_and_missing_usage_handled(monkeypatch):
     assert r["answer"] == ""
     assert "empty content" in r["error"]
     assert r["prompt_tokens"] == 0 and r["completion_tokens"] == 0
+    assert r["fireworks_calls"] == 2 and r["retry_calls"] == 1
     assert len(client.chat.completions.calls) == 2

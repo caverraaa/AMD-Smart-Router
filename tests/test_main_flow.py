@@ -48,7 +48,12 @@ def test_happy_path(monkeypatch, tmp_path, capsys):
     assert created["api_key"] == "fk-test"
     assert created["max_retries"] == 0
     err = capsys.readouterr().err
-    assert "stats:" in err and "total_tokens=30" in err
+    assert "stats:" in err and "total_tokens=45" in err
+    assert "fireworks_calls=3" in err
+    assert "probe_prompt_tokens=10" in err
+    assert "probe_completion_tokens=5" in err
+    assert "task_prompt_tokens=20" in err
+    assert "task_completion_tokens=10" in err
 
 
 def test_one_task_failure_does_not_kill_run(monkeypatch, tmp_path):

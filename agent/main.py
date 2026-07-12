@@ -57,14 +57,27 @@ def pick_cheapest_model(allowed_models):
     return min(allowed_models, key=parse_model_size)  # ties keep list order
 
 
-def _probe(client, model, extra_body=None):
+def _empty_usage_stats():
+    return {"calls": 0, "prompt_tokens": 0, "completion_tokens": 0}
+
+
+def _record_usage(stats, response):
+    usage = getattr(response, "usage", None)
+    if usage is not None:
+        stats["prompt_tokens"] += usage.prompt_tokens or 0
+        stats["completion_tokens"] += usage.completion_tokens or 0
+
+
+def _probe(client, model, extra_body=None, stats=None):
     """One tiny call; returns billed-minus-visible completion-token overhead.
 
     Reasoning models bill hidden thinking as completion tokens — on the
     scored eval the overhead was ~2/3 of the whole bill, so it outranks
     parameter count when choosing the cheapest usable model.
     """
+    stats = stats if stats is not None else _empty_usage_stats()
     kwargs = {"extra_body": extra_body} if extra_body else {}
+    stats["calls"] += 1
     resp = client.chat.completions.create(
         model=model,
         messages=[{"role": "user", "content": PROBE_PROMPT}],
@@ -73,15 +86,17 @@ def _probe(client, model, extra_body=None):
         timeout=PROBE_TIMEOUT_SECONDS,
         **kwargs,
     )
+    _record_usage(stats, resp)
     content = (resp.choices[0].message.content or "").strip()
     usage = getattr(resp, "usage", None)
     billed = (usage.completion_tokens or 0) if usage else 0
     return billed - max(1, len(content) // 4)
 
 
-def pick_working_model(client, allowed_models):
+def pick_working_model(client, allowed_models, probe_stats=None):
     """Returns (model_id, extra_body|None): cheapest usable model by measured
     token overhead; never a model that can't actually answer a chat call."""
+    probe_stats = probe_stats if probe_stats is not None else _empty_usage_stats()
     ranked = sorted(allowed_models, key=parse_model_size)  # stable: ties keep list order
     override = os.environ.get("CHEAP_MODEL")
     if override in allowed_models:
@@ -89,14 +104,15 @@ def pick_working_model(client, allowed_models):
     candidates = []  # (overhead, rank_index, model, extra_body)
     for i, model in enumerate(ranked):
         try:
-            overhead = _probe(client, model)
+            overhead = _probe(client, model, stats=probe_stats)
         except Exception as exc:  # noqa: BLE001 — failed probe just means next model
             log(f"WARN: model {model} failed probe: {type(exc).__name__}: {exc}")
             continue
         extra = None
         if overhead > KNOB_TRIGGER_TOKENS:
             try:  # reasoning model: does it accept a low-effort knob?
-                low = _probe(client, model, extra_body={"reasoning_effort": "low"})
+                low = _probe(client, model, extra_body={"reasoning_effort": "low"},
+                             stats=probe_stats)
                 if low < overhead:
                     overhead, extra = low, {"reasoning_effort": "low"}
             except Exception:  # noqa: BLE001 — knob rejected; keep default behavior
@@ -214,7 +230,9 @@ def answer_task(client, model, task, deadline, extra_body=None, local=None, rout
     """One Fireworks call with one retry. Never raises; failures return answer ''."""
     result = {"task_id": task["task_id"], "answer": "",
               "prompt_tokens": 0, "completion_tokens": 0, "error": None,
-              "category": task.get("category", "unknown"), "lane": "fireworks"}
+              "category": task.get("category", "unknown"), "lane": "fireworks",
+              "fireworks_calls": 0, "retry_calls": 0,
+              "retry_prompt_tokens": 0, "retry_completion_tokens": 0}
     routing = routing or {}
     if (local is not None and routing.get(result["category"]) == "local"
             and time.monotonic() + LOCAL_WORST_SECONDS < deadline):
@@ -235,6 +253,9 @@ def answer_task(client, model, task, deadline, extra_body=None, local=None, rout
             result["error"] = "soft budget exhausted before dispatch"
             return result
         try:
+            result["fireworks_calls"] += 1
+            if attempt:
+                result["retry_calls"] += 1
             resp = client.chat.completions.create(
                 model=model,
                 messages=[
@@ -248,8 +269,13 @@ def answer_task(client, model, task, deadline, extra_body=None, local=None, rout
             )
             usage = getattr(resp, "usage", None)
             if usage is not None:  # tokens are billed per attempt — accumulate
-                result["prompt_tokens"] += usage.prompt_tokens or 0
-                result["completion_tokens"] += usage.completion_tokens or 0
+                attempt_prompt_tokens = usage.prompt_tokens or 0
+                attempt_completion_tokens = usage.completion_tokens or 0
+                result["prompt_tokens"] += attempt_prompt_tokens
+                result["completion_tokens"] += attempt_completion_tokens
+                if attempt:
+                    result["retry_prompt_tokens"] += attempt_prompt_tokens
+                    result["retry_completion_tokens"] += attempt_completion_tokens
             content = (resp.choices[0].message.content or "").strip()
             if not content:
                 # reasoning models can burn the whole cap on hidden reasoning
@@ -285,11 +311,14 @@ def main():
     answers = {tid: "" for tid in task_ids}
     write_snapshot(task_ids, answers, output_path)  # valid output exists from t=0
 
-    prompt_tokens = completion_tokens = failed = 0
+    task_prompt_tokens = task_completion_tokens = failed = 0
+    task_calls = retry_calls = retry_prompt_tokens = retry_completion_tokens = 0
+    probe_stats = _empty_usage_stats()
     model = "(none)"
     try:
         client = OpenAI(base_url=cfg["base_url"], api_key=cfg["api_key"], max_retries=0)
-        model, extra_body = pick_working_model(client, cfg["allowed_models"])
+        model, extra_body = pick_working_model(
+            client, cfg["allowed_models"], probe_stats=probe_stats)
         log(f"model: {model} (from {len(cfg['allowed_models'])} allowed)")
         routing = load_routing_table(os.environ.get(
             "ROUTING_TABLE",
@@ -312,9 +341,14 @@ def main():
                 r = fut.result()  # answer_task never raises
                 answers[r["task_id"]] = r["answer"]
                 log(f"task={r['task_id']} cat={r['category']} "
-                    f"pt={r['prompt_tokens']} ct={r['completion_tokens']} lane={r['lane']}")
-                prompt_tokens += r["prompt_tokens"]
-                completion_tokens += r["completion_tokens"]
+                    f"pt={r['prompt_tokens']} ct={r['completion_tokens']} "
+                    f"calls={r['fireworks_calls']} retries={r['retry_calls']} lane={r['lane']}")
+                task_prompt_tokens += r["prompt_tokens"]
+                task_completion_tokens += r["completion_tokens"]
+                task_calls += r["fireworks_calls"]
+                retry_calls += r["retry_calls"]
+                retry_prompt_tokens += r["retry_prompt_tokens"]
+                retry_completion_tokens += r["retry_completion_tokens"]
                 if r["error"]:
                     failed += 1
                     log(f"WARN: {r['task_id']}: {r['error']}")
@@ -324,8 +358,19 @@ def main():
     finally:
         write_snapshot(task_ids, answers, output_path)
         answered = sum(1 for a in answers.values() if a)
+        prompt_tokens = probe_stats["prompt_tokens"] + task_prompt_tokens
+        completion_tokens = probe_stats["completion_tokens"] + task_completion_tokens
+        fireworks_calls = probe_stats["calls"] + task_calls
         log(
             f"stats: tasks={len(task_ids)} answered={answered} failed={failed} "
+            f"fireworks_calls={fireworks_calls} probe_calls={probe_stats['calls']} "
+            f"task_calls={task_calls} retry_calls={retry_calls} "
+            f"probe_prompt_tokens={probe_stats['prompt_tokens']} "
+            f"probe_completion_tokens={probe_stats['completion_tokens']} "
+            f"task_prompt_tokens={task_prompt_tokens} "
+            f"task_completion_tokens={task_completion_tokens} "
+            f"retry_prompt_tokens={retry_prompt_tokens} "
+            f"retry_completion_tokens={retry_completion_tokens} "
             f"prompt_tokens={prompt_tokens} completion_tokens={completion_tokens} "
             f"total_tokens={prompt_tokens + completion_tokens} "
             f"elapsed={time.monotonic() - start:.1f}s model={model}"

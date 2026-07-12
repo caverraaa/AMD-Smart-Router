@@ -34,7 +34,9 @@ def test_collector_logs_per_task_line(monkeypatch, tmp_path, capsys):
     assert m.main() == 0
     err = capsys.readouterr().err
     line = next(l for l in err.splitlines() if l.startswith("task=t1"))
-    assert re.fullmatch(r"task=t1 cat=sentiment pt=\d+ ct=\d+ lane=fireworks", line)
+    assert re.fullmatch(
+        r"task=t1 cat=sentiment pt=\d+ ct=\d+ calls=1 retries=0 lane=fireworks",
+        line)
 
 
 def test_fireworks_call_includes_category_constraint():

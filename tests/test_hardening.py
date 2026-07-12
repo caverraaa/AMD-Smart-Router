@@ -114,6 +114,22 @@ def test_reasoning_model_gets_low_effort_knob(monkeypatch):
     assert client.chat.completions.calls[1]["extra_body"] == {"reasoning_effort": "low"}
 
 
+def test_probe_usage_includes_every_successful_probe(monkeypatch):
+    monkeypatch.delenv("CHEAP_MODEL", raising=False)
+    stats = m._empty_usage_stats()
+    client = FakeClient([probe_response("4", 150), probe_response("4", 20)])
+    pick_working_model(client, ["accounts/x/reasoner-8b"], probe_stats=stats)
+    assert stats == {"calls": 2, "prompt_tokens": 30, "completion_tokens": 170}
+
+
+def test_failed_probe_counts_call_without_inventing_usage(monkeypatch):
+    monkeypatch.delenv("CHEAP_MODEL", raising=False)
+    stats = m._empty_usage_stats()
+    client = FakeClient([RuntimeError("bad"), probe_response("4", 5)])
+    pick_working_model(client, ["accounts/x/a", "accounts/x/b"], probe_stats=stats)
+    assert stats == {"calls": 2, "prompt_tokens": 15, "completion_tokens": 5}
+
+
 def test_low_effort_rejected_keeps_default(monkeypatch):
     monkeypatch.delenv("CHEAP_MODEL", raising=False)
     # model A: high overhead, low-effort knob rejected -> stays candidate at 149
@@ -173,6 +189,9 @@ def test_empty_content_triggers_retry_with_bigger_cap(monkeypatch):
     assert calls[1]["max_tokens"] == m.RETRY_MAX_TOKENS
     # tokens from BOTH attempts count (the proxy billed both)
     assert r["completion_tokens"] == 2048 + 900
+    assert r["retry_calls"] == 1
+    assert r["retry_prompt_tokens"] == 50
+    assert r["retry_completion_tokens"] == 900
 
 
 def test_empty_content_twice_returns_empty_with_error(monkeypatch):
