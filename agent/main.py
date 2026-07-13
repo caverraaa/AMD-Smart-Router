@@ -102,6 +102,26 @@ def pick_cheapest_model(allowed_models):
     return min(allowed_models, key=parse_model_size)  # ties keep list order
 
 
+def pick_most_capable_model(allowed_models):
+    """Prefer the largest identifiable allowlisted model.
+
+    This is the accuracy-recovery fallback.  The previous fallback selected
+    the smallest model whenever the validated policy model was absent from a
+    runtime allowlist.  That is a good token optimization only after the
+    accuracy gate is known to pass; it is unsafe as a submission default.
+    Unparseable catalogs retain their published order.
+    """
+    override = os.environ.get("CHEAP_MODEL")  # backwards-compatible dev knob
+    if override in allowed_models:
+        return override
+    sized = []
+    for index, model in enumerate(allowed_models):
+        size = parse_model_size(model)
+        if math.isfinite(size):
+            sized.append((size, -index, model))
+    return max(sized)[2] if sized else allowed_models[0]
+
+
 def _empty_usage_stats():
     return {"calls": 0, "prompt_tokens": 0, "completion_tokens": 0}
 
@@ -120,7 +140,7 @@ def pick_working_model(client, allowed_models, probe_stats=None):
         selected = next(
             (model for model, _ in OFFLINE_MODEL_POLICY if model in allowed_models),
             None,
-        ) or pick_cheapest_model(allowed_models)
+        ) or pick_most_capable_model(allowed_models)
     extra = next(
         (dict(body) for model, body in OFFLINE_MODEL_POLICY if model == selected),
         None,

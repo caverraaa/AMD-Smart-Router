@@ -1,6 +1,6 @@
 import math
 
-from agent.main import parse_model_size, pick_cheapest_model
+from agent.main import parse_model_size, pick_cheapest_model, pick_most_capable_model
 
 
 def test_parse_size_plain_billions():
@@ -50,3 +50,19 @@ def test_env_override_outside_list_is_ignored(monkeypatch):
     allowed = ["accounts/x/small-2b", "accounts/x/big-70b"]
     monkeypatch.setenv("CHEAP_MODEL", "accounts/evil/not-allowed")
     assert pick_cheapest_model(allowed) == "accounts/x/small-2b"
+
+
+def test_accuracy_fallback_picks_largest(monkeypatch):
+    monkeypatch.delenv("CHEAP_MODEL", raising=False)
+    allowed = [
+        "accounts/fireworks/models/gemma-2-2b-it",
+        "accounts/fireworks/models/llama-v3p1-70b-instruct",
+        "accounts/fireworks/models/llama-v3p1-8b-instruct",
+    ]
+    assert pick_most_capable_model(allowed) == allowed[1]
+
+
+def test_accuracy_fallback_keeps_catalog_order_when_sizes_are_unknown(monkeypatch):
+    monkeypatch.delenv("CHEAP_MODEL", raising=False)
+    allowed = ["accounts/x/alpha-instruct", "accounts/x/beta-instruct"]
+    assert pick_most_capable_model(allowed) == allowed[0]

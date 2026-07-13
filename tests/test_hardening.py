@@ -77,11 +77,11 @@ def test_offline_policy_prefers_validated_model_without_api_calls(monkeypatch):
     assert client.chat.completions.calls == []
 
 
-def test_offline_policy_unknown_catalog_falls_back_to_smallest(monkeypatch):
+def test_offline_policy_unknown_catalog_falls_back_to_largest(monkeypatch):
     monkeypatch.delenv("CHEAP_MODEL", raising=False)
     client = FakeClient([])
     allowed = ["accounts/x/big-70b", "accounts/x/small-2b"]
-    assert pick_working_model(client, allowed) == ("accounts/x/small-2b", None)
+    assert pick_working_model(client, allowed) == ("accounts/x/big-70b", None)
     assert client.chat.completions.calls == []
 
 

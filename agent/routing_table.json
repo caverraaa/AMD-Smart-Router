@@ -1,10 +1,10 @@
 {
-"sentiment": "local",
-"ner": "local",
+"sentiment": "fireworks",
+"ner": "fireworks",
 "factual": "fireworks",
-"logic": "local",
-"math": "local",
-"summarisation": "local",
-"code_debug": "local",
-"code_gen": "local"
+"logic": "fireworks",
+"math": "fireworks",
+"summarisation": "fireworks",
+"code_debug": "fireworks",
+"code_gen": "fireworks"
 }
